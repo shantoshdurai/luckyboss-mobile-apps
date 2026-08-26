@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "655783263537",
+    "project_id": "luckyboss-617d2",
+    "storage_bucket": "luckyboss-617d2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:655783263537:android:6d28c15a5098516a158410",
+        "android_client_info": {
+          "package_name": "com.app.luckybossemployer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIqaS9NX_hNPWMvOVehnaBC8cask2GxlI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:655783263537:android:d67362e44445bf4d158410",
+        "android_client_info": {
+          "package_name": "com.userapp.luckyboss"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIqaS9NX_hNPWMvOVehnaBC8cask2GxlI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
