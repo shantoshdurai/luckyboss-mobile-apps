@@ -190,9 +190,9 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
                   contentPadding: EdgeInsets.zero,
                   title: Text('Dark / Night Mode', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600)),
                   subtitle: Text('Toggle recruiter workspace theme', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppTheme.textMuted)),
-                  value: _darkMode,
-                  activeColor: AppTheme.emerald,
-                  onChanged: (val) => setState(() => _darkMode = val),
+                  value: provider.isDarkMode,
+                  activeTrackColor: AppTheme.emerald,
+                  onChanged: (val) => provider.toggleDarkMode(val),
                 ),
                 const Divider(height: 1),
 

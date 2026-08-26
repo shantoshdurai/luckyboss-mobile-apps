@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/employer_provider.dart';
 import 'screens/auth/employer_login_screen.dart';
-import 'screens/employer_main_navigation_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,11 +18,45 @@ class LuckyBossEmployerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => EmployerProvider()),
       ],
-      child: MaterialApp(
-        title: 'Lucky Boss — Employer Recruiter',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const EmployerLoginScreen(),
+      child: Consumer<EmployerProvider>(
+        builder: (context, provider, _) {
+          return MaterialApp(
+            title: 'Lucky Boss Portal',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: provider.themeMode,
+            builder: (context, child) {
+              final isDesktop = MediaQuery.of(context).size.width > 500;
+              if (!isDesktop) return child!;
+
+              return Scaffold(
+                backgroundColor: const Color(0xFF0F172A),
+                body: Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 420, maxHeight: 900),
+                    margin: const EdgeInsets.symmetric(vertical: 24),
+                    decoration: BoxDecoration(
+                      color: provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+                      borderRadius: BorderRadius.circular(36),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 32,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: child!,
+                  ),
+                ),
+              );
+            },
+            home: const EmployerLoginScreen(),
+          );
+        },
       ),
     );
   }

@@ -129,7 +129,7 @@ class EmployerDashboardTab extends StatelessWidget {
                         color: AppTheme.navy.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('Recruiter', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.navy)),
+                      child: Text('Portal', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.navy)),
                     ),
                   ],
                 ),

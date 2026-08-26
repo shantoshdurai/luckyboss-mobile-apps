@@ -4,6 +4,8 @@ enum ExperienceLevel {
   senior,
   lead;
 
+  String get label => displayLabel;
+
   String get displayLabel {
     switch (this) {
       case ExperienceLevel.entry:

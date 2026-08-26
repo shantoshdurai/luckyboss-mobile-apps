@@ -26,6 +26,14 @@ class AppTheme {
   static const Color textSecondary  = Color(0xFF475569);
   static const Color textMuted      = Color(0xFF94A3B8);
 
+  // Dark Theme Colors
+  static const Color bgDark         = Color(0xFF0B132B);
+  static const Color surfaceDark    = Color(0xFF1C2541);
+  static const Color cardDark       = Color(0xFF1E293B);
+  static const Color borderDark     = Color(0xFF334155);
+  static const Color textDarkPrim   = Color(0xFFF8FAFC);
+  static const Color textDarkSec    = Color(0xFF94A3B8);
+
   static TextStyle serifTitle({double fontSize = 24, Color color = textPrimary, FontWeight fontWeight = FontWeight.w700}) {
     return GoogleFonts.cormorantGaramond(
       fontSize: fontSize,
@@ -75,6 +83,8 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: primaryNavy,
       scaffoldBackgroundColor: bgPaper,
+      cardColor: surfaceWhite,
+      dividerColor: borderLight,
       colorScheme: const ColorScheme.light(
         primary: primaryNavy,
         secondary: emerald,
@@ -101,6 +111,50 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryNavy,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      primaryColor: emerald,
+      scaffoldBackgroundColor: bgDark,
+      cardColor: cardDark,
+      dividerColor: borderDark,
+      colorScheme: const ColorScheme.dark(
+        primary: emerald,
+        secondary: emeraldDark,
+        tertiary: skyBlue,
+        surface: cardDark,
+        error: Color(0xFFEF4444),
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textDarkPrim,
+      ),
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme),
+      appBarTheme: AppBarTheme(
+        backgroundColor: cardDark,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: Colors.black45,
+        iconTheme: const IconThemeData(color: textDarkPrim),
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: textDarkPrim,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: emerald,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),

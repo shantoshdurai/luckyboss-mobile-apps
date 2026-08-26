@@ -80,28 +80,27 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Logo / Eyebrow
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.business, size: 14, color: AppTheme.emerald),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Corporate Recruiter Workspace',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.emerald),
-                            ),
-                          ],
-                        ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.business, size: 14, color: AppTheme.emerald),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Corporate Recruiter Workspace',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.emerald),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -246,11 +245,12 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Remember me & Forgot Password
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
                             width: 24,

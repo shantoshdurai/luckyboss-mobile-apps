@@ -9,20 +9,21 @@ class JobSeekerProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isAuthenticated = false;
   bool _isProfileComplete = false;
+  bool _isDarkMode = false; // Default: Light Mode
   String _selectedCountry = 'IN'; // India default
   String _selectedCategory = 'All Roles';
   String _searchQuery = '';
 
   SeekerProfileModel _profile = SeekerProfileModel(
-    name: 'Arjun Mehta',
-    email: 'arjun.mehta@gmail.com',
-    phone: '+91 98765-43210',
+    name: '',
+    email: '',
+    phone: '',
     experienceLevel: ExperienceLevel.mid,
     preferredCategory: 'IT & Software',
-    bio: 'Full-stack mobile engineer with 4+ years of experience building cross-platform applications using Flutter, Dart, and cloud-native backend services.',
-    skills: ['Flutter', 'Dart', 'Firebase', 'REST APIs', 'Docker', 'Python', 'Node.js'],
-    resumeFileName: 'Arjun_Mehta_Resume_2026.pdf',
-    isVerified: true,
+    bio: '',
+    skills: [],
+    resumeFileName: null,
+    isVerified: false,
   );
 
   // --- Demo job data ---
@@ -71,14 +72,14 @@ class JobSeekerProvider extends ChangeNotifier {
       currency: 'INR',
       category: 'IT & Software',
       aiMatchPercent: 88.0,
-      description: 'Build robust Kubernetes clusters, automated CI/CD deployment pipelines, and microservice infrastructure.',
-      requiredSkills: ['Docker', 'Kubernetes', 'Python', 'Firebase'],
+      description: 'Design CI/CD automation pipelines, Kubernetes clusters, and multi-region cloud deployment architectures.',
+      requiredSkills: ['Docker', 'Kubernetes', 'AWS', 'Python', 'CI/CD'],
       postedDate: DateTime.now().subtract(const Duration(days: 2)),
     ),
     JobModel(
       id: 'job-104',
-      title: 'Cross-Border Supply Chain Manager',
-      companyName: 'Tata Freight & Logistics',
+      title: 'Regional Supply Chain Manager',
+      companyName: 'Petronas Supply Solutions',
       countryCode: 'MY',
       location: 'Kuala Lumpur, Malaysia',
       workMode: 'Hybrid',
@@ -107,24 +108,14 @@ class JobSeekerProvider extends ChangeNotifier {
       interviewSchedule: 'Friday, 28 Aug 2026 • 02:30 PM (Google Meet)',
       recruiterRemarks: 'Impressive mobile portfolio. Scheduled for Stage 2 Technical Interview.',
     ),
-    ApplicationModel(
-      id: 'app-002',
-      jobId: 'job-102',
-      jobTitle: 'Senior Warehouse Operations Lead',
-      companyName: 'Tuas Port Logistics Group',
-      location: 'Singapore, Jurong East',
-      salaryDisplay: 'SGD 3,800 - 5,200 / mo',
-      matchScore: 78.0,
-      stage: ApplicationStage.shortlisted,
-      appliedDate: DateTime.now().subtract(const Duration(days: 4)),
-      recruiterRemarks: 'Profile under review by Senior Hiring Team.',
-    ),
   ];
 
   // --- Getters ---
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
   bool get isProfileComplete => _isProfileComplete;
+  bool get isDarkMode => _isDarkMode;
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
   String get selectedCountry => _selectedCountry;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
@@ -142,26 +133,22 @@ class JobSeekerProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // --- Auth & Profile State ---
+  // --- Theme Mode ---
+  void toggleDarkMode(bool val) {
+    _isDarkMode = val;
+    notifyListeners();
+  }
 
+  // --- Auth & Profile State ---
   Future<void> checkAuthStatus() async {
     _isAuthenticated = await FirebaseAuthService.isLoggedIn();
     _isProfileComplete = await FirebaseAuthService.isProfileComplete();
 
-    // If returning user, hydrate profile with saved phone
-    if (_isAuthenticated && _isProfileComplete && _profile.name.isEmpty) {
+    if (_isAuthenticated) {
       final phone = await FirebaseAuthService.getSavedPhone();
-      _profile = SeekerProfileModel(
-        name: 'Arjun Mehta',
-        phone: phone ?? '+91 98765 43210',
-        email: 'arjun.mehta@gmail.com',
-        countryCode: 'IN',
-        experienceLevel: ExperienceLevel.mid,
-        preferredCategory: 'IT & Software',
-        bio: 'Full-stack mobile engineer with 4+ years building cross-platform Flutter applications.',
-        skills: ['Flutter', 'Dart', 'Python', 'Firebase', 'Docker', 'REST APIs'],
-        isVerified: true,
-      );
+      if (phone != null && _profile.phone.isEmpty) {
+        _profile.phone = phone;
+      }
     }
 
     notifyListeners();
@@ -173,51 +160,88 @@ class JobSeekerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Profile Setup Wizard ---
-
+  // --- Profile Setup & Updating ---
   void updateProfileBasicInfo({
     required String name,
     required String email,
-    required ExperienceLevel experienceLevel,
-    required String preferredCategory,
+    ExperienceLevel? experienceLevel,
+    String? preferredCategory,
   }) {
     _profile.name = name;
     _profile.email = email;
-    _profile.experienceLevel = experienceLevel;
-    _profile.preferredCategory = preferredCategory;
+    if (experienceLevel != null) _profile.experienceLevel = experienceLevel;
+    if (preferredCategory != null) _profile.preferredCategory = preferredCategory;
     notifyListeners();
   }
 
-  /// Simulate uploading a resume and having AI extract structured data
-  Future<SeekerProfileModel> parseResumeWithAI(String fileName) async {
+  void updateAllProfileDetails({
+    required String name,
+    required String email,
+    required String phone,
+    required ExperienceLevel experienceLevel,
+    required String preferredCategory,
+    required List<String> skills,
+    required String bio,
+    String? resumeFileName,
+  }) {
+    _profile.name = name;
+    _profile.email = email;
+    _profile.phone = phone;
+    _profile.experienceLevel = experienceLevel;
+    _profile.preferredCategory = preferredCategory;
+    _profile.skills = List.from(skills);
+    _profile.bio = bio;
+    _profile.resumeFileName = resumeFileName;
+    notifyListeners();
+  }
+
+  void updateBio(String newBio) {
+    _profile.bio = newBio;
+    notifyListeners();
+  }
+
+  void updateResume(String? fileName) {
+    _profile.resumeFileName = fileName;
+    notifyListeners();
+  }
+
+  Future<void> parseResumeWithAI(String fileName) async {
     _isLoading = true;
     notifyListeners();
 
-    final extractedData = await GeminiCopilotService.extractResumeData(fileName);
-    final extracted = SeekerProfileModel.fromExtractedJson(
-      extractedData,
-      phone: _profile.phone,
-    );
+    _profile.resumeFileName = fileName;
+    final extracted = await GeminiCopilotService.extractResumeData(fileName);
 
-    // Merge: keep user-entered name/email if they already filled Step 1
-    if (_profile.name.isNotEmpty) extracted.name = _profile.name;
-    if (_profile.email.isNotEmpty) extracted.email = _profile.email;
-    extracted.resumeFileName = fileName;
+    if (_profile.bio.isEmpty && extracted['bio'] != null && extracted['bio'].toString().isNotEmpty) {
+      _profile.bio = extracted['bio'];
+    }
 
-    _profile = extracted;
+    final newSkills = List<String>.from(extracted['skills'] ?? []);
+    for (final s in newSkills) {
+      if (!_profile.skills.contains(s)) {
+        _profile.skills.add(s);
+      }
+    }
+
     _isLoading = false;
     notifyListeners();
-    return extracted;
   }
 
-  void updateProfileFromExtraction({
-    String? bio,
-    List<String>? skills,
-    ExperienceLevel? experienceLevel,
-  }) {
-    if (bio != null) _profile.bio = bio;
-    if (skills != null) _profile.skills = skills;
-    if (experienceLevel != null) _profile.experienceLevel = experienceLevel;
+  void addSkill(String skill) {
+    final trimmed = skill.trim();
+    if (trimmed.isNotEmpty && !_profile.skills.contains(trimmed)) {
+      _profile.skills.add(trimmed);
+      notifyListeners();
+    }
+  }
+
+  void removeSkill(String skill) {
+    _profile.skills.remove(skill);
+    notifyListeners();
+  }
+
+  void setSkills(List<String> skills) {
+    _profile.skills = List.from(skills);
     notifyListeners();
   }
 
@@ -229,7 +253,6 @@ class JobSeekerProvider extends ChangeNotifier {
   }
 
   // --- Job Browsing ---
-
   void setCountry(String code) {
     _selectedCountry = code;
     notifyListeners();
@@ -269,24 +292,12 @@ class JobSeekerProvider extends ChangeNotifier {
         matchScore: job.aiMatchPercent,
         stage: ApplicationStage.applied,
         appliedDate: DateTime.now(),
-        recruiterRemarks: 'Application submitted successfully. Waiting for recruiter review.',
+        recruiterRemarks: 'Application submitted directly to hiring manager.',
       ),
     );
 
     _isLoading = false;
     notifyListeners();
     return true;
-  }
-
-  void addSkill(String skill) {
-    if (!_profile.skills.contains(skill)) {
-      _profile.skills.add(skill);
-      notifyListeners();
-    }
-  }
-
-  void removeSkill(String skill) {
-    _profile.skills.remove(skill);
-    notifyListeners();
   }
 }

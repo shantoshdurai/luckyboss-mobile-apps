@@ -3,7 +3,8 @@ import '../models/employer_models.dart';
 
 class EmployerProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
-  String _companyName = 'Lucky Boss Enterprise Pte Ltd';
+  bool _isDarkMode = false; // Default: Light mode
+  final String _companyName = 'Lucky Boss Enterprise Pte Ltd';
   String _phone = '+65 8123 9900';
 
   final List<EmployerJobModel> _jobs = [
@@ -68,10 +69,17 @@ class EmployerProvider extends ChangeNotifier {
   ];
 
   bool get isAuthenticated => _isAuthenticated;
+  bool get isDarkMode => _isDarkMode;
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
   String get companyName => _companyName;
   String get phone => _phone;
   List<EmployerJobModel> get jobs => _jobs;
   List<ApplicantModel> get applicants => _applicants;
+
+  void toggleDarkMode(bool val) {
+    _isDarkMode = val;
+    notifyListeners();
+  }
 
   void setAuthenticated(bool val, {String? phone}) {
     _isAuthenticated = val;

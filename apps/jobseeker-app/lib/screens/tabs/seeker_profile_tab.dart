@@ -15,64 +15,274 @@ class SeekerProfileTab extends StatefulWidget {
 }
 
 class _SeekerProfileTabState extends State<SeekerProfileTab> {
-  bool _darkMode = false;
   bool _pushNotifications = true;
 
   String _getInitials(String name) {
-    if (name.trim().isEmpty) return 'AM';
+    if (name.trim().isEmpty) return 'LB';
     final parts = name.trim().split(' ');
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     return parts[0][0].toUpperCase();
   }
 
+  // --- Skills Picker with Search and Custom Tag Creation ---
   void _showAddSkillDialog(BuildContext context, JobSeekerProvider provider) {
+    String searchFilter = '';
+    final customSkillCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredSkills = AppData.verifiedSkillDictionary
+                .where((s) => s.toLowerCase().contains(searchFilter.toLowerCase()))
+                .toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(color: AppTheme.borderMedium, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select & Search Skills',
+                    style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Search Bar
+                  TextField(
+                    onChanged: (v) => setModalState(() => searchFilter = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search skills (e.g. Flutter, React, Supply Chain)...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      fillColor: AppTheme.bgPaper,
+                      filled: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Custom Skill Adder
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: customSkillCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Add custom skill tag...',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            fillColor: AppTheme.bgPaper,
+                            filled: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final text = customSkillCtrl.text.trim();
+                          if (text.isNotEmpty) {
+                            provider.addSkill(text);
+                            customSkillCtrl.clear();
+                            setModalState(() {});
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emeraldDark,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('+ Add'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Skills Wrap
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: filteredSkills.map((skill) {
+                            final isAdded = provider.profile.skills.contains(skill);
+                            return FilterChip(
+                              label: Text(skill),
+                              selected: isAdded,
+                              selectedColor: AppTheme.primaryNavy,
+                              labelStyle: AppTheme.sansSemiBold(
+                                fontSize: 12,
+                                color: isAdded ? Colors.white : AppTheme.textPrimary,
+                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  provider.addSkill(skill);
+                                } else {
+                                  provider.removeSkill(skill);
+                                }
+                                setModalState(() {});
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryNavy,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- Executive Bio Editor Modal ---
+  void _showEditBioDialog(BuildContext context, JobSeekerProvider provider) {
+    final bioCtrl = TextEditingController(text: provider.profile.bio);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppTheme.borderMedium, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Edit Executive Bio', style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                const SizedBox(height: 6),
+                Text('Summarize your professional experience and key achievements.', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: bioCtrl,
+                  maxLines: 5,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Write a brief professional summary...',
+                    fillColor: AppTheme.bgPaper,
+                    filled: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      provider.updateBio(bioCtrl.text.trim());
+                      Navigator.pop(ctx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryNavy,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text('Save Bio', style: AppTheme.sansBold(fontSize: 14, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Resume Upload Dialog ---
+  void _showResumeUploadDialog(BuildContext context, JobSeekerProvider provider) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Select Verified Skills', style: AppTheme.serifTitle(fontSize: 18, color: AppTheme.primaryNavy)),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: AppData.verifiedSkillDictionary.map((skill) {
-                  final isAdded = provider.profile.skills.contains(skill);
-                  return FilterChip(
-                    label: Text(skill),
-                    selected: isAdded,
-                    selectedColor: AppTheme.primaryNavy,
-                    labelStyle: AppTheme.sansSemiBold(
-                      fontSize: 12,
-                      color: isAdded ? Colors.white : AppTheme.textPrimary,
-                    ),
-                    onSelected: (selected) {
-                      if (selected) {
-                        provider.addSkill(skill);
-                      } else {
-                        provider.removeSkill(skill);
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Done'),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: AppTheme.borderMedium, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
+              const SizedBox(height: 16),
+              Text('Update Resume', style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final namePrefix = provider.profile.name.replaceAll(' ', '_');
+                  final fileName = '${namePrefix.isNotEmpty ? namePrefix : "Candidate"}_Resume.pdf';
+                  provider.updateResume(fileName);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Resume updated to $fileName')),
+                  );
+                },
+                icon: const Icon(Icons.upload_file_rounded),
+                label: const Text('Select PDF Document'),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+              ),
+              const SizedBox(height: 10),
+              if (provider.profile.resumeFileName != null)
+                TextButton(
+                  onPressed: () {
+                    provider.updateResume(null);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Remove Current Resume', style: TextStyle(color: Colors.redAccent)),
+                ),
             ],
           ),
         );
@@ -89,9 +299,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
         return Container(
           height: MediaQuery.of(context).size.height * 0.75,
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,10 +321,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               Expanded(
                 child: ListView(
                   children: [
-                    _buildLegalSection('1. Candidate Data Encryption', 'All resumes, contact information, and verification records are encrypted with Enterprise 256-bit AES encryption and hosted on compliant cloud infrastructure.'),
-                    _buildLegalSection('2. Recruiter Visibility', 'Your verified profile is only shared with registered corporate employers whose vacancies match your skills. Contact details are masked until an interview is accepted.'),
+                    _buildLegalSection('1. Candidate Data Encryption', 'All contact information, resume files, and verification records are encrypted with 256-bit AES encryption on ISO-certified cloud infrastructure.'),
+                    _buildLegalSection('2. Recruiter Visibility', 'Your verified profile is only visible to certified employers whose vacancies match your skills. Contact numbers are masked until an interview is accepted.'),
                     _buildLegalSection('3. Cross-Border Compliance', 'Lucky Boss adheres to PDPA (Singapore), PDPA (Malaysia), and Digital Personal Data Protection Act (India).'),
-                    _buildLegalSection('4. Right to Erasure', 'You can request deletion of all parsed data and resume files anytime through your account settings or by contacting privacy@luckyboss.global.'),
                   ],
                 ),
               ),
@@ -150,19 +359,18 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
   Widget build(BuildContext context) {
     final provider = Provider.of<JobSeekerProvider>(context);
     final profile = provider.profile;
-    final candidateName = profile.name.isNotEmpty ? profile.name : 'Arjun Mehta';
-    final candidateEmail = profile.email.isNotEmpty ? profile.email : 'arjun.mehta@gmail.com';
-    final candidatePhone = profile.phone.isNotEmpty ? profile.phone : '+91 98765-43210';
+    final candidateName = profile.name.isNotEmpty ? profile.name : 'Candidate';
+    final candidateEmail = profile.email.isNotEmpty ? profile.email : 'No email added';
+    final candidatePhone = profile.phone.isNotEmpty ? profile.phone : '+91 (Verified)';
     final candidateBio = profile.bio.isNotEmpty
         ? profile.bio
-        : 'Full-stack mobile engineer with 4+ years of experience building cross-platform applications using Flutter, Dart, and cloud-native backend services.';
+        : 'No executive bio added yet. Tap "Edit Bio" below to write a professional summary for hiring managers.';
+
+    final hasResume = profile.resumeFileName != null && profile.resumeFileName!.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgPaper,
       appBar: AppBar(
         title: Text('Candidate Profile', style: AppTheme.sansBold(fontSize: 18, color: AppTheme.primaryNavy)),
-        backgroundColor: Colors.white,
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
@@ -171,9 +379,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderLight),
+              border: Border.all(color: Theme.of(context).dividerColor),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.03),
@@ -218,7 +426,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                               const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
                             ],
                           ),
-                          const SizedBox(width: 2),
+                          const SizedBox(height: 2),
                           Text(
                             candidateEmail,
                             style: AppTheme.sansMedium(fontSize: 12.5, color: AppTheme.textSecondary),
@@ -234,7 +442,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 ),
                 const SizedBox(height: 16),
 
-                // Profile Completion Meter
+                // Profile Strength Meter
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -254,16 +462,16 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text('Profile Strength', style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.primaryNavy)),
-                                Text('95% Verified', style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.emeraldDark)),
+                                Text(hasResume ? '95% Verified' : '75% Complete (Manual)', style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.emeraldDark)),
                               ],
                             ),
                             const SizedBox(height: 4),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
-                              child: const LinearProgressIndicator(
-                                value: 0.95,
+                              child: LinearProgressIndicator(
+                                value: hasResume ? 0.95 : 0.75,
                                 backgroundColor: AppTheme.borderLight,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.emerald),
+                                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.emerald),
                                 minHeight: 4,
                               ),
                             ),
@@ -278,13 +486,13 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           ),
           const SizedBox(height: 16),
 
-          // 2. Uploaded Resume & AI Parsing Card
+          // 2. Resume Card
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,15 +500,16 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Verified Resume', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    Text('Resume Document', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    if (hasResume)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text('AI Parsed ✓', style: AppTheme.sansBold(fontSize: 11, color: AppTheme.emeraldDark)),
                       ),
-                      child: Text('AI Parsed ✓', style: AppTheme.sansBold(fontSize: 11, color: AppTheme.emeraldDark)),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -313,28 +522,31 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 28),
+                      Icon(
+                        hasResume ? Icons.picture_as_pdf_rounded : Icons.note_add_outlined,
+                        color: hasResume ? const Color(0xFFDC2626) : AppTheme.textMuted,
+                        size: 28,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              profile.resumeFileName ?? 'Arjun_Mehta_Resume_2026.pdf',
+                              hasResume ? profile.resumeFileName! : 'No resume uploaded (Manual Profile)',
                               style: AppTheme.sansBold(fontSize: 12.5, color: AppTheme.primaryNavy),
                               overflow: TextOverflow.ellipsis,
                             ),
-                            Text('Updated Today • 248 KB', style: AppTheme.sansRegular(fontSize: 11, color: AppTheme.textMuted)),
+                            Text(
+                              hasResume ? 'Updated Recently' : 'Tap to attach PDF resume',
+                              style: AppTheme.sansRegular(fontSize: 11, color: AppTheme.textMuted),
+                            ),
                           ],
                         ),
                       ),
                       TextButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Resume preview opened.')),
-                          );
-                        },
-                        child: Text('View', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.royalBlue)),
+                        onPressed: () => _showResumeUploadDialog(context, provider),
+                        child: Text(hasResume ? 'Change' : '+ Upload', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.royalBlue)),
                       ),
                     ],
                   ),
@@ -348,9 +560,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,52 +570,79 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Skills & Competencies', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    Text('Skills & Competencies (${profile.skills.length})', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
                     InkWell(
                       onTap: () => _showAddSkillDialog(context, provider),
                       child: Row(
                         children: [
                           const Icon(Icons.add_circle_outline_rounded, size: 15, color: AppTheme.royalBlue),
                           const SizedBox(width: 4),
-                          Text('Add Skill', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.royalBlue)),
+                          Text('Add / Search', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.royalBlue)),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: profile.skills.map((skill) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.bgPaper,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderLight),
+                profile.skills.isEmpty
+                    ? Text('No skills added yet. Tap "Add / Search" to choose skills.', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted))
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: profile.skills.map((skill) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgPaper,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.borderLight),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(skill, style: AppTheme.sansBold(fontSize: 12, color: AppTheme.primaryNavy)),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => provider.removeSkill(skill),
+                                  child: const Icon(Icons.close_rounded, size: 14, color: AppTheme.textMuted),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
-                      child: Text(skill, style: AppTheme.sansBold(fontSize: 12, color: AppTheme.primaryNavy)),
-                    );
-                  }).toList(),
-                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // 4. Executive Bio
+          // 4. Executive Bio with Edit Option
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Executive Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Executive Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    InkWell(
+                      onTap: () => _showEditBioDialog(context, provider),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_outlined, size: 15, color: AppTheme.royalBlue),
+                          const SizedBox(width: 4),
+                          Text('Edit Bio', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.royalBlue)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Text(
                   candidateBio,
@@ -414,13 +653,13 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           ),
           const SizedBox(height: 16),
 
-          // 5. Settings & App Preferences
+          // 5. Settings & App Preferences (Dark Mode, Notifications, Privacy)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,14 +667,17 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Text('App Preferences & Settings', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
                 const SizedBox(height: 8),
 
-                // Dark Mode Switch
+                // Dark Mode Switch (Starts in Light Mode = false)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('Dark / Night Mode', style: AppTheme.sansMedium(fontSize: 13.5, color: AppTheme.textPrimary)),
-                  subtitle: Text('Switch between light and night theme', style: AppTheme.sansRegular(fontSize: 11.5, color: AppTheme.textMuted)),
-                  value: _darkMode,
-                  activeColor: AppTheme.emerald,
-                  onChanged: (val) => setState(() => _darkMode = val),
+                  subtitle: Text(
+                    provider.isDarkMode ? 'Night theme enabled' : 'Light theme active',
+                    style: AppTheme.sansRegular(fontSize: 11.5, color: AppTheme.textMuted),
+                  ),
+                  value: provider.isDarkMode,
+                  activeTrackColor: AppTheme.emerald,
+                  onChanged: (val) => provider.toggleDarkMode(val),
                 ),
                 const Divider(height: 1),
 
@@ -445,7 +687,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   title: Text('Interview & Job Alerts', style: AppTheme.sansMedium(fontSize: 13.5, color: AppTheme.textPrimary)),
                   subtitle: Text('Receive real-time ATS shortlist alerts', style: AppTheme.sansRegular(fontSize: 11.5, color: AppTheme.textMuted)),
                   value: _pushNotifications,
-                  activeColor: AppTheme.emerald,
+                  activeTrackColor: AppTheme.emerald,
                   onChanged: (val) => setState(() => _pushNotifications = val),
                 ),
                 const Divider(height: 1),
@@ -457,15 +699,6 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   title: Text('Privacy Policy & Compliance', style: AppTheme.sansMedium(fontSize: 13.5, color: AppTheme.textPrimary)),
                   trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
                   onTap: () => _showPrivacyPolicy(context),
-                ),
-                const Divider(height: 1),
-
-                // Region / Country
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.language_rounded, color: AppTheme.primaryNavy, size: 20),
-                  title: Text('Region & Currency', style: AppTheme.sansMedium(fontSize: 13.5, color: AppTheme.textPrimary)),
-                  trailing: Text('India, SG, MY', style: AppTheme.sansBold(fontSize: 12, color: AppTheme.textSecondary)),
                 ),
               ],
             ),
