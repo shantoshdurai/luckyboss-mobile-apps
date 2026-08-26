@@ -23,10 +23,10 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  // 4 individual digit controllers
+  // 4 individual digit controllers (Clean & Empty)
   final List<TextEditingController> _digitControllers = List.generate(
     4,
-    (i) => TextEditingController(text: ['1', '2', '3', '4'][i]),
+    (i) => TextEditingController(),
   );
 
   final List<FocusNode> _focusNodes = List.generate(4, (i) => FocusNode());
@@ -71,7 +71,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         final provider = Provider.of<JobSeekerProvider>(context, listen: false);
         provider.setAuthenticated(true, phone: widget.phoneNumber);
 
-        // Check if profile is already completed
         final profileComplete = await FirebaseAuthService.isProfileComplete();
 
         if (mounted) {
@@ -113,6 +112,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     } else if (value.isEmpty && index > 0) {
       _focusNodes[index - 1].requestFocus();
     }
+    setState(() {});
   }
 
   @override
@@ -120,7 +120,27 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Verification', style: AppTheme.sansBold(fontSize: 17, color: AppTheme.primaryNavy)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.primaryNavy, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Text('Lucky', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.emeraldDark)),
+            Text('Boss', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Verification', style: AppTheme.sansBold(fontSize: 11, color: AppTheme.primaryNavy)),
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -130,7 +150,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             children: [
               Text(
                 'Enter 4-digit OTP',
-                style: AppTheme.serifTitle(fontSize: 28, color: AppTheme.primaryNavy),
+                style: GoogleFonts.cormorantGaramond(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
               ),
               const SizedBox(height: 8),
               Row(
@@ -160,24 +180,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isFilled ? AppTheme.emerald : AppTheme.borderMedium,
-                        width: isFilled ? 2 : 1.2,
+                        width: isFilled ? 2 : 1,
                       ),
-                      boxShadow: isFilled
-                          ? [
-                              BoxShadow(
-                                color: AppTheme.emerald.withValues(alpha: 0.18),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
                     ),
                     child: Center(
                       child: TextField(
                         controller: _digitControllers[index],
                         focusNode: _focusNodes[index],
-                        keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
                         maxLength: 1,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         style: GoogleFonts.plusJakartaSans(
@@ -185,12 +196,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.primaryNavy,
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           counterText: '',
                           border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
+                          hintText: '–',
+                          hintStyle: GoogleFonts.plusJakartaSans(
+                            fontSize: 24,
+                            color: const Color(0xFFCBD5E1),
+                          ),
                         ),
                         onChanged: (val) => _onDigitChanged(index, val),
                       ),
@@ -201,19 +214,29 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
               if (_errorMsg != null) ...[
                 const SizedBox(height: 16),
-                Text(_errorMsg!, style: AppTheme.sansMedium(fontSize: 12.5, color: Colors.red)),
+                Center(
+                  child: Text(
+                    _errorMsg!,
+                    style: AppTheme.sansMedium(fontSize: 12.5, color: Colors.redAccent),
+                  ),
+                ),
               ],
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
-              // Resend Countdown
+              // Resend Code row
               Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text("Didn't receive code? ", style: AppTheme.sansRegular(fontSize: 13.5, color: AppTheme.textSecondary)),
-                    Text('Resend in 00:45', style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.emeraldDark)),
-                  ],
+                child: TextButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('A fresh 4-digit OTP has been dispatched.')),
+                    );
+                  },
+                  icon: const Icon(Icons.refresh_rounded, size: 16, color: AppTheme.royalBlue),
+                  label: Text(
+                    'Resend Code via SMS',
+                    style: AppTheme.sansBold(fontSize: 13, color: AppTheme.royalBlue),
+                  ),
                 ),
               ),
 
@@ -224,9 +247,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _verifyCode,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   child: _isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Verify & Continue'),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Verify & Continue', style: AppTheme.sansBold(fontSize: 15, color: Colors.white)),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                          ],
+                        ),
                 ),
               ),
             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_data.dart';
 import '../../services/firebase_auth_service.dart';
@@ -17,6 +18,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
   String? _errorMsg;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleSendOtp() async {
     final rawPhone = _phoneController.text.replaceAll('-', '').replaceAll(' ', '').trim();
@@ -67,7 +74,23 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Candidate Login', style: AppTheme.sansBold(fontSize: 17, color: AppTheme.primaryNavy)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Row(
+          children: [
+            Text('Lucky', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.emeraldDark)),
+            Text('Boss', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Candidate', style: AppTheme.sansBold(fontSize: 11, color: AppTheme.primaryNavy)),
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -77,12 +100,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
             children: [
               Text(
                 'Enter your mobile number',
-                style: AppTheme.serifTitle(fontSize: 28, color: AppTheme.primaryNavy),
+                style: GoogleFonts.cormorantGaramond(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
               ),
               const SizedBox(height: 8),
               Text(
                 'We will send a 4-digit verification code to authenticate your candidate workspace.',
-                style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.textSecondary),
+                style: AppTheme.sansRegular(fontSize: 13.5, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 32),
 
@@ -134,13 +157,24 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           _PhoneHyphenInputFormatter(),
                         ],
-                        style: AppTheme.sansBold(fontSize: 17, color: AppTheme.textPrimary, letterSpacing: 0.8),
-                        decoration: const InputDecoration(
-                          hintText: '98765-43210',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryNavy,
+                          letterSpacing: 0.8,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'e.g. 98765-43210',
+                          hintStyle: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF94A3B8), // clearly faded placeholder hint
+                            letterSpacing: 0.8,
+                          ),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
                           filled: false,
                         ),
                       ),
@@ -151,7 +185,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
               if (_errorMsg != null) ...[
                 const SizedBox(height: 12),
-                Text(_errorMsg!, style: AppTheme.sansMedium(fontSize: 12, color: Colors.red)),
+                Text(_errorMsg!, style: AppTheme.sansMedium(fontSize: 12, color: Colors.redAccent)),
               ],
 
               const Spacer(),
@@ -161,9 +195,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleSendOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   child: _isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Send Code'),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Send Code', style: AppTheme.sansBold(fontSize: 15, color: Colors.white)),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 12),
