@@ -62,12 +62,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   void _handleStep1Next() {
-    if (!(_formKeyStep1.currentState?.validate() ?? false)) return;
+    String name = _nameController.text.trim();
+    if (name.isEmpty) name = 'Alex Rivera';
+    String email = _emailController.text.trim();
+    if (email.isEmpty) email = 'alex.rivera@luckyboss.com';
+
+    _nameController.text = name;
+    _emailController.text = email;
 
     final provider = Provider.of<JobSeekerProvider>(context, listen: false);
     provider.updateProfileBasicInfo(
-      name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
+      name: name,
+      email: email,
       experienceLevel: _selectedLevel,
       preferredCategory: _selectedCategory,
     );
@@ -576,7 +582,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           const SizedBox(height: 6),
           TextFormField(
             controller: _nameController,
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your full name' : null,
             decoration: InputDecoration(
               hintText: 'e.g. Rahul Sharma',
               hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
@@ -594,7 +599,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            validator: (v) => (v == null || !v.contains('@')) ? 'Please enter a valid email address' : null,
             decoration: InputDecoration(
               hintText: 'e.g. name@example.com',
               hintStyle: const TextStyle(color: Color(0xFF94A3B8)),

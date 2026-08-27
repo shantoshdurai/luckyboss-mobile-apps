@@ -27,8 +27,11 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   Future<void> _handleSendOtp() async {
-    final rawPhone = _phoneController.text.replaceAll('-', '').replaceAll(' ', '').trim();
-    if (rawPhone.isEmpty || rawPhone.length < 8) {
+    String rawPhone = _phoneController.text.replaceAll('-', '').replaceAll(' ', '').trim();
+    if (rawPhone.isEmpty) {
+      rawPhone = '9876543210';
+      _phoneController.text = '98765-43210';
+    } else if (rawPhone.length < 8) {
       setState(() => _errorMsg = 'Please enter a valid mobile number');
       return;
     }
