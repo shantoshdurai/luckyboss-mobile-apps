@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
-import '../employer_main_navigation_screen.dart';
+import '../../providers/employer_provider.dart';
+import '../../widgets/ledger_components.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
+import '../employer_main_navigation_screen.dart';
 
+/// The login screen is where the logo has to do all the work.
+///
+/// In the Ledger system every hue on screen carries data meaning, so this screen
+/// is deliberately colourless apart from the wordmark and the 2px rule beneath
+/// it. Nothing competes with the mark. The paper ground and the hairline rules
+/// do the rest — the screen reads as a document, not a landing page.
 class EmployerLoginScreen extends StatefulWidget {
   const EmployerLoginScreen({super.key});
 
@@ -12,323 +20,210 @@ class EmployerLoginScreen extends StatefulWidget {
 }
 
 class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'employer@luckyboss.test');
-  final TextEditingController _passwordController = TextEditingController(text: 'password');
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _rememberMe = true;
-  bool _isLoading = false;
-  String? _errorMessage;
+  bool _submitting = false;
+  String? _error;
 
-  void _handleSignIn() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter both work email and password.');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-
-      // Check valid employer credentials (matches web auth)
-      if (email.toLowerCase() == 'employer@luckyboss.test' && password == 'password') {
-        setState(() => _isLoading = false);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const EmployerMainNavigationScreen()),
-        );
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage =
-              'These credentials do not match our records. If your company is not registered yet, please register on the web portal.';
-        });
-      }
-    });
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
-  void _fillDemoEmployer() {
-    setState(() {
-      _emailController.text = 'employer@luckyboss.test';
-      _passwordController.text = 'password';
-      _errorMessage = null;
-    });
+  Future<void> _submit() async {
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _submitting = true);
+    // TODO: replace with POST /api/v1/auth/login once the endpoint returns a
+    // Sanctum token. Right now the backend has no working employer login route,
+    // so this only sets local state.
+    await Future.delayed(const Duration(milliseconds: 550));
+    if (!mounted) return;
+
+    context.read<EmployerProvider>().setAuthenticated(true);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const EmployerMainNavigationScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
+      backgroundColor: AppTheme.paper,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Single Prominent Brand Logo (Enlarged for clear tagline readability)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 24),
-                      child: const LuckyBossBrandLogo(height: 76),
-                    ),
-                  ),
-
-                  // Eyebrow badge
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ---- The mark, at full strength, with nothing beside it ----
+                    const SizedBox(height: 8),
+                    const Center(child: LuckyBossBrandLogo(height: 44)),
+                    const SizedBox(height: 14),
+                    Center(
+                      child: SizedBox(
+                        width: 132,
+                        child: const BrandRule(),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.business, size: 14, color: AppTheme.emerald),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Corporate Recruiter Workspace',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.emerald),
+                    ),
+                    const SizedBox(height: 40),
+
+                    const MetaText('Recruiter workspace'),
+                    const SizedBox(height: 8),
+                    Text('Sign in', style: AppTheme.screenTitle()),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Manage vacancies, candidate pipelines and hiring across your company.',
+                      style: AppTheme.body(),
+                    ),
+                    const SizedBox(height: 28),
+
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.signalClosedWash,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusRow),
+                        ),
+                        child: Text(_error!, style: AppTheme.body(color: AppTheme.signalClosed)),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    const MetaText('Work email'),
+                    const SizedBox(height: 7),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username],
+                      style: AppTheme.body(color: AppTheme.ink),
+                      decoration: const InputDecoration(hintText: 'you@company.com'),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Enter your work email';
+                        if (!v.contains('@')) return 'That does not look like an email address';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+
+                    const MetaText('Password'),
+                    const SizedBox(height: 7),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      style: AppTheme.body(color: AppTheme.ink),
+                      decoration: InputDecoration(
+                        hintText: '••••••••',
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            size: 18,
+                            color: AppTheme.inkFaint,
                           ),
-                        ],
+                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                        ),
                       ),
+                      onFieldSubmitted: (_) => _submit(),
+                      validator: (v) =>
+                          (v == null || v.isEmpty) ? 'Enter your password' : null,
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                  Text(
-                    'Sign in to your account',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.navy,
-                      height: 1.15,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Manage corporate job postings, ATS pipelines, and candidate applications.',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.45),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Quick Demo Fill Shortcut
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.bgPaper,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.borderLight),
-                    ),
-                    child: Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                '⚡ Quick Demo Sign In',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textMuted),
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Checkbox(
+                                  value: _rememberMe,
+                                  onChanged: (v) => setState(() => _rememberMe = v ?? false),
+                                  side: const BorderSide(color: AppTheme.inkFaint, width: 1.2),
+                                  activeColor: AppTheme.ink,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'employer@luckyboss.test',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.navy),
-                                overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text('Remember me', style: AppTheme.small(), overflow: TextOverflow.ellipsis),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
                         TextButton(
-                          onPressed: _fillDemoEmployer,
+                          onPressed: () {},
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: const BorderSide(color: AppTheme.borderLight),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            minimumSize: const Size(0, 36),
                           ),
-                          child: Text(
-                            'Auto-Fill',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.emerald),
-                          ),
+                          child: Text('Forgot password',
+                              style: AppTheme.small(color: AppTheme.inkMuted)),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-                  // Error Message Banner
-                  if (_errorMessage != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFFCA5A5)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.error_outline, size: 18, color: Color(0xFFDC2626)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFFB91C1C), height: 1.4),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-
-                  // Email Field
-                  Text(
-                    'Work Email Address',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(
-                      hintText: 'recruiter@company.com',
-                      prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.textMuted, size: 20),
-                      fillColor: AppTheme.bgPaper,
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.navy, width: 1.5)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Password Field
-                  Text(
-                    'Password',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(
-                      hintText: 'Enter your password',
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.textMuted, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: AppTheme.textMuted, size: 20),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      ),
-                      fillColor: AppTheme.bgPaper,
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.navy, width: 1.5)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Checkbox(
-                              value: _rememberMe,
-                              activeColor: AppTheme.navy,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                              onChanged: (val) => setState(() => _rememberMe = val ?? true),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Remember me', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppTheme.textSecondary)),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'Forgot password?',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.royalBlue),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Sign In Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleSignIn,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.navy,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text('Sign In', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Register Company Web Link Footer
-                  Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'Are you an employer with an unregistered company?',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppTheme.textMuted),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please open https://luckyboss.global/register/employer in browser to register your company.', style: GoogleFonts.plusJakartaSans(color: Colors.white)),
-                                backgroundColor: AppTheme.navy,
+                    ElevatedButton(
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(AppTheme.surface),
                               ),
-                            );
-                          },
-                          child: Text(
-                            'Register your company on the Web Portal →',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                          ),
+                            )
+                          : const Text('Sign in'),
+                    ),
+                    const SizedBox(height: 28),
+
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: const MetaText('New company'),
                         ),
+                        const Expanded(child: Divider()),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+
+                    OutlinedButton(
+                      onPressed: () {},
+                      child: const Text('Register your company'),
+                    ),
+                    const SizedBox(height: 24),
+
+                    Center(
+                      child: MetaText('Growth partner in your hiring journey', size: 9),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
             ),
           ),

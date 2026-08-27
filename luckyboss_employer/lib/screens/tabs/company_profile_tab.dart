@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/employer_provider.dart';
+import '../../widgets/ledger_components.dart';
 import '../auth/employer_login_screen.dart';
 
 class CompanyProfileTab extends StatefulWidget {
@@ -13,7 +13,6 @@ class CompanyProfileTab extends StatefulWidget {
 }
 
 class _CompanyProfileTabState extends State<CompanyProfileTab> {
-  bool _darkMode = false;
   bool _candidateAlerts = true;
 
   void _showPrivacyPolicy(BuildContext context) {
@@ -26,40 +25,51 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
           height: MediaQuery.of(context).size.height * 0.70,
           padding: const EdgeInsets.all(24),
           decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
+                  width: 36,
                   height: 4,
-                  decoration: BoxDecoration(color: AppTheme.borderLight, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                    color: AppTheme.rule,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Corporate Compliance & ATS Data Policy', style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.navy)),
-              const SizedBox(height: 8),
-              Text('Applicable for Singapore, Malaysia & India', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppTheme.textMuted)),
-              const Divider(height: 24),
+              Text('Corporate Compliance & ATS Data Policy', style: AppTheme.sectionHeader()),
+              const SizedBox(height: 4),
+              const MetaText('Applicable for Singapore, Malaysia & India'),
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: AppTheme.rule),
+              const SizedBox(height: 12),
               Expanded(
                 child: ListView(
                   children: [
-                    Text('• All candidate resumes are processed in isolated sandboxes with strict RBAC.', style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 1.4)),
+                    Text('• All candidate resumes are processed in isolated sandboxes with strict RBAC.', style: AppTheme.body()),
                     const SizedBox(height: 8),
-                    Text('• SMS OTP & Firebase Phone Auth adheres to Google Play Store and Blaze Billing SLAs.', style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 1.4)),
+                    Text('• SMS OTP & Firebase Phone Auth adheres to regional privacy and security standards.', style: AppTheme.body()),
                     const SizedBox(height: 8),
-                    Text('• Candidate contact masking remains active until mutual interview acceptance.', style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 1.4)),
+                    Text('• Candidate contact masking remains active until unlocked via contact credit or mutual review.', style: AppTheme.body()),
                   ],
                 ),
               ),
               SizedBox(
                 width: double.infinity,
+                height: 44,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Close'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.ink,
+                    foregroundColor: AppTheme.surface,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
+                  ),
+                  child: Text('Close', style: AppTheme.button(color: AppTheme.surface)),
                 ),
               ),
             ],
@@ -71,138 +81,143 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<EmployerProvider>(context);
+    final provider = context.watch<EmployerProvider>();
 
     return Scaffold(
-      backgroundColor: AppTheme.bgPaper,
+      backgroundColor: AppTheme.paper,
       appBar: AppBar(
-        title: Text('Company Profile', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navy)),
-        backgroundColor: Colors.white,
+        title: Text('Company Profile', style: AppTheme.screenTitle(size: 18)),
+        backgroundColor: AppTheme.surface,
         elevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(2),
+          child: BrandRule(),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
         children: [
           // 1. Company Card
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderLight),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: AppTheme.navy,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.apartment_rounded, color: Colors.white, size: 28),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                provider.companyName,
-                                style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.navy),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
-                            ],
-                          ),
-                          Text('Headquarters: Singapore & Bengaluru', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppTheme.textSecondary)),
-                          Text('talent@luckyboss.global', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.emerald)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 2. Plan Tier Card
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.navy,
-                  const Color(0xFF1E293B),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+              border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppTheme.emerald.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.flash_on_rounded, color: AppTheme.emeraldLight, size: 24),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.paper,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                    border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.apartment_rounded, color: AppTheme.ink, size: 24),
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Enterprise Plan', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text('Firebase Blaze • Unlimited ATS Pipelines', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: Colors.white70)),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              provider.companyName,
+                              style: AppTheme.rowTitle(size: 15),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.verified, color: AppTheme.signalPositive, size: 16),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Headquarters: Singapore & Bengaluru', style: AppTheme.body(size: 12)),
+                      const SizedBox(height: 2),
+                      Text('talent@luckyboss.global', style: AppTheme.body(color: AppTheme.signalProgress, size: 12)),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(8)),
-                  child: Text('Active', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // 2. Plan Tier Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+              border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.signalPositiveWash,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                  ),
+                  child: const Icon(Icons.flash_on_rounded, color: AppTheme.signalPositive, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Enterprise Plan', style: AppTheme.rowTitle(size: 14)),
+                      const SizedBox(height: 2),
+                      Text('Full ATS Pipelines • Dual-Engine AI Screening', style: AppTheme.body(size: 11.5)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.signalPositiveWash,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+                  ),
+                  child: const MetaText('Active', color: AppTheme.signalPositive, size: 9),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
 
           // 3. Settings & Preferences
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+              border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recruiter Settings', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navy)),
-                const SizedBox(height: 8),
-
-
-
+                const MetaText('Recruiter Settings'),
+                const SizedBox(height: 10),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('New Applicant Alerts', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                  subtitle: Text('Notify instantly on high AI-fit candidates', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppTheme.textMuted)),
+                  title: Text('New Applicant Alerts', style: AppTheme.rowTitle(size: 13.5)),
+                  subtitle: Text('Notify instantly on high AI-fit candidates', style: AppTheme.body(size: 11.5)),
                   value: _candidateAlerts,
-                  activeColor: AppTheme.emerald,
+                  activeThumbColor: AppTheme.signalPositive,
                   onChanged: (val) => setState(() => _candidateAlerts = val),
                 ),
-                const Divider(height: 1),
-
+                const Divider(height: 1, color: AppTheme.rule),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.security_rounded, color: AppTheme.navy, size: 20),
-                  title: Text('Data Privacy & ATS Compliance', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
+                  leading: const Icon(Icons.security_rounded, color: AppTheme.ink, size: 18),
+                  title: Text('Data Privacy & ATS Compliance', style: AppTheme.rowTitle(size: 13.5)),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.inkMuted, size: 18),
                   onTap: () => _showPrivacyPolicy(context),
                 ),
               ],
@@ -213,15 +228,17 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
           // 4. Sign Out
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 46,
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
-              label: Text('Sign Out Recruiter Session', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+              icon: const Icon(Icons.logout_rounded, color: AppTheme.signalClosed, size: 16),
+              label: Text('Sign Out Recruiter Session', style: AppTheme.button(color: AppTheme.signalClosed)),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                side: const BorderSide(color: AppTheme.signalClosedWash, width: 1.5),
+                backgroundColor: AppTheme.signalClosedWash,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
               ),
               onPressed: () {
+                context.read<EmployerProvider>().setAuthenticated(false);
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const EmployerLoginScreen()),

@@ -694,7 +694,7 @@ class _ExploreJobsTabState extends State<ExploreJobsTab> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: AppData.categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final cat = AppData.categories[index];
                   final isSelected = provider.selectedCategory == cat;

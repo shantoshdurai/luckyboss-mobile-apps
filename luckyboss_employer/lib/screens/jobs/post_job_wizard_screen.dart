@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/employer_provider.dart';
+import '../../widgets/ledger_components.dart';
 
 class PostJobWizardScreen extends StatefulWidget {
   const PostJobWizardScreen({super.key});
@@ -59,7 +59,7 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_titleController.text.trim().isEmpty) return;
     
-    Provider.of<EmployerProvider>(context, listen: false).postNewJob(
+    context.read<EmployerProvider>().postNewJob(
       title: _titleController.text.trim(),
       category: _category,
       location: _locationController.text.trim(),
@@ -77,8 +77,8 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppTheme.emerald,
-        content: Text('Vacancy published successfully!', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+        backgroundColor: AppTheme.signalPositive,
+        content: Text('Vacancy published successfully!', style: AppTheme.button(color: Colors.white)),
       ),
     );
   }
@@ -86,29 +86,34 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.navy, size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.ink, size: 16),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Post New Vacancy', style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.navy)),
+        title: Text('Post New Vacancy', style: AppTheme.screenTitle(size: 17)),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(2),
+          child: BrandRule(),
+        ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           children: [
             // Job Title
             _buildLabel('Job Title *'),
             TextFormField(
               controller: _titleController,
+              style: AppTheme.body(),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               decoration: _inputDecor('e.g. Senior Flutter Engineer'),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Category & Work Mode row
             Row(
@@ -119,9 +124,9 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                     children: [
                       _buildLabel('Category'),
                       DropdownButtonFormField<String>(
-                        value: _category,
+                        initialValue: _category,
                         items: ['IT & Software', 'Logistics & Warehouse', 'Finance', 'Healthcare', 'Engineering', 'Sales & Marketing']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTheme.body(size: 13))))
                             .toList(),
                         onChanged: (v) => setState(() => _category = v!),
                         decoration: _inputDecor(null),
@@ -136,9 +141,9 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                     children: [
                       _buildLabel('Work Mode'),
                       DropdownButtonFormField<String>(
-                        value: _workMode,
+                        initialValue: _workMode,
                         items: ['On-site', 'Remote', 'Hybrid']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTheme.body(size: 13))))
                             .toList(),
                         onChanged: (v) => setState(() => _workMode = v!),
                         decoration: _inputDecor(null),
@@ -148,16 +153,17 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Location & Country
             _buildLabel('City & Location *'),
             TextFormField(
               controller: _locationController,
+              style: AppTheme.body(),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              decoration: _inputDecor('e.g. Bengaluru, India'),
+              decoration: _inputDecor('e.g. Singapore, One-North'),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             Row(
               children: [
@@ -167,9 +173,9 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                     children: [
                       _buildLabel('Country'),
                       DropdownButtonFormField<String>(
-                        value: _country,
+                        initialValue: _country,
                         items: ['Singapore', 'India', 'Malaysia']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTheme.body(size: 13))))
                             .toList(),
                         onChanged: (v) => setState(() => _country = v!),
                         decoration: _inputDecor(null),
@@ -186,17 +192,18 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                         decoration: BoxDecoration(
-                          color: AppTheme.bgPaper,
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                          border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
                         ),
-                        child: Text(_currency, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.navy)),
+                        child: Text(_currency, style: AppTheme.score(size: 14)),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Salary Range
             _buildLabel('Salary Range (per month) *'),
@@ -206,25 +213,27 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                   child: TextFormField(
                     controller: _minSalaryController,
                     keyboardType: TextInputType.number,
+                    style: AppTheme.body(),
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     decoration: _inputDecor('Min'),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('to', style: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted)),
+                  child: Text('to', style: AppTheme.body(size: 12)),
                 ),
                 Expanded(
                   child: TextFormField(
                     controller: _maxSalaryController,
                     keyboardType: TextInputType.number,
+                    style: AppTheme.body(),
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     decoration: _inputDecor('Max'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Experience & Job Type
             Row(
@@ -235,9 +244,9 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                     children: [
                       _buildLabel('Experience Level'),
                       DropdownButtonFormField<String>(
-                        value: _experienceLevel,
+                        initialValue: _experienceLevel,
                         items: ['Entry Level', 'Mid Level', 'Senior', 'Lead', 'Director']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTheme.body(size: 13))))
                             .toList(),
                         onChanged: (v) => setState(() => _experienceLevel = v!),
                         decoration: _inputDecor(null),
@@ -252,9 +261,9 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                     children: [
                       _buildLabel('Job Type'),
                       DropdownButtonFormField<String>(
-                        value: _jobType,
+                        initialValue: _jobType,
                         items: ['Full-Time', 'Part-Time', 'Contract', 'Internship']
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTheme.body(size: 13))))
                             .toList(),
                         onChanged: (v) => setState(() => _jobType = v!),
                         decoration: _inputDecor(null),
@@ -264,17 +273,18 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Job Description
             _buildLabel('Job Description *'),
             TextFormField(
               controller: _descriptionController,
               maxLines: 5,
+              style: AppTheme.body(),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               decoration: _inputDecor('Describe the role, day-to-day responsibilities, team structure...'),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Required Skills
             _buildLabel('Required Skills'),
@@ -283,6 +293,7 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                 Expanded(
                   child: TextField(
                     controller: _skillController,
+                    style: AppTheme.body(),
                     decoration: _inputDecor('e.g. Flutter, Docker...'),
                     onSubmitted: (_) => _addSkill(),
                   ),
@@ -291,11 +302,12 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                 ElevatedButton(
                   onPressed: _addSkill,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: AppTheme.ink,
+                    foregroundColor: AppTheme.surface,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
-                  child: const Text('+ Add'),
+                  child: Text('+ Add', style: AppTheme.button(color: AppTheme.surface)),
                 ),
               ],
             ),
@@ -306,28 +318,32 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
                 runSpacing: 6,
                 children: _requiredSkills.map((s) {
                   return Chip(
-                    label: Text(s, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
-                    deleteIcon: const Icon(Icons.close, size: 16),
+                    label: Text(s, style: AppTheme.body(size: 12)),
+                    deleteIcon: const Icon(Icons.close, size: 14, color: AppTheme.inkMuted),
                     onDeleted: () => setState(() => _requiredSkills.remove(s)),
-                    backgroundColor: AppTheme.bgPaper,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: AppTheme.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+                      side: const BorderSide(color: AppTheme.rule, width: AppTheme.hairline),
+                    ),
                   );
                 }).toList(),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
             // Submit
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.navy,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: AppTheme.ink,
+                  foregroundColor: AppTheme.surface,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
                 ),
-                child: Text('Publish Vacancy', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text('Publish Vacancy', style: AppTheme.button(color: AppTheme.surface)),
               ),
             ),
           ],
@@ -339,18 +355,29 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.navy)),
+      child: MetaText(text, color: AppTheme.ink, size: 10),
     );
   }
 
   InputDecoration _inputDecor(String? hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: const Color(0xFF94A3B8), fontSize: 13),
-      fillColor: AppTheme.bgPaper,
+      hintStyle: AppTheme.body(color: AppTheme.inkFaint, size: 13),
+      fillColor: AppTheme.surface,
       filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        borderSide: const BorderSide(color: AppTheme.rule, width: AppTheme.hairline),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        borderSide: const BorderSide(color: AppTheme.rule, width: AppTheme.hairline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        borderSide: const BorderSide(color: AppTheme.ink, width: 1.4),
+      ),
     );
   }
 }

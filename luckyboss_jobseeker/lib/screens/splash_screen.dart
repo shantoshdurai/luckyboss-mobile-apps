@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen> {
               'assets/images/logo.png',
               height: 88,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Row(
+              errorBuilder: (context, error, stackTrace) => Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Lucky', style: GoogleFonts.cormorantGaramond(fontSize: 42, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),

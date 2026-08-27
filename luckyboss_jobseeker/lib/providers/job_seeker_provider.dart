@@ -14,7 +14,7 @@ class JobSeekerProvider extends ChangeNotifier {
   String _selectedCategory = 'All Roles';
   String _searchQuery = '';
 
-  SeekerProfileModel _profile = SeekerProfileModel(
+  final SeekerProfileModel _profile = SeekerProfileModel(
     name: '',
     email: '',
     phone: '',

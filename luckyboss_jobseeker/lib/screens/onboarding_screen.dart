@@ -42,8 +42,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const PhoneAuthScreen(),
-        transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+        pageBuilder: (context, animation, secondaryAnimation) => const PhoneAuthScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 350),
       ),
     );

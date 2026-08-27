@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_theme.dart';
 import 'tabs/employer_dashboard_tab.dart';
 import 'tabs/active_jobs_tab.dart';
@@ -27,12 +26,14 @@ class _EmployerMainNavigationScreenState extends State<EmployerMainNavigationScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.paper,
       body: _tabs[_currentIndex],
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.navy,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add, color: AppTheme.emeraldLight),
-        label: Text('Post Job', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        backgroundColor: AppTheme.ink,
+        foregroundColor: AppTheme.surface,
+        elevation: 2,
+        icon: const Icon(Icons.add, size: 18, color: AppTheme.surface),
+        label: Text('Post Job', style: AppTheme.button(color: AppTheme.surface)),
         onPressed: () {
           Navigator.push(
             context,
@@ -40,20 +41,68 @@ class _EmployerMainNavigationScreenState extends State<EmployerMainNavigationScr
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (idx) => setState(() => _currentIndex = idx),
-        selectedItemColor: AppTheme.navy,
-        unselectedItemColor: AppTheme.textMuted,
-        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11),
-        unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 11),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.business_center_outlined), activeIcon: Icon(Icons.business_center), label: 'Jobs'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'ATS Pipeline'),
-          BottomNavigationBarItem(icon: Icon(Icons.apartment_outlined), activeIcon: Icon(Icons.apartment), label: 'Company'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surface,
+          border: Border(top: BorderSide(color: AppTheme.rule, width: AppTheme.hairline)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (idx) => setState(() => _currentIndex = idx),
+          backgroundColor: AppTheme.surface,
+          elevation: 0,
+          selectedItemColor: AppTheme.ink,
+          unselectedItemColor: AppTheme.inkFaint,
+          selectedLabelStyle: AppTheme.meta(color: AppTheme.ink, size: 10, weight: FontWeight.w700),
+          unselectedLabelStyle: AppTheme.meta(color: AppTheme.inkFaint, size: 10, weight: FontWeight.w500),
+          type: BottomNavigationBarType.fixed,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.dashboard_outlined, size: 20),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.dashboard_rounded, size: 20),
+              ),
+              label: 'Dashboard',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.business_center_outlined, size: 20),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.business_center_rounded, size: 20),
+              ),
+              label: 'Jobs',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.people_outline_rounded, size: 20),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.people_rounded, size: 20),
+              ),
+              label: 'ATS Pipeline',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.apartment_outlined, size: 20),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 2),
+                child: Icon(Icons.apartment_rounded, size: 20),
+              ),
+              label: 'Company',
+            ),
+          ],
+        ),
       ),
     );
   }

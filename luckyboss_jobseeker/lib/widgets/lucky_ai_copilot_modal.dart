@@ -209,7 +209,7 @@ class _LuckyAiCopilotModalState extends State<LuckyAiCopilotModal> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _suggestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final sug = _suggestions[index];
                 return ActionChip(

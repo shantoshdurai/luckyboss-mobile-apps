@@ -32,7 +32,7 @@ class MyApplicationsTab extends StatelessWidget {
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
               itemCount: applications.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 final app = applications[index];
                 return Container(

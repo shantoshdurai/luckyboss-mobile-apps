@@ -165,76 +165,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _goToStep(2);
   }
 
-  // --- Push Notification Permission Prompt ---
-  void _showNotificationPermissionModal() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppTheme.emerald.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(Icons.notifications_active_rounded, size: 32, color: AppTheme.emeraldDark),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Enable Instant Job & Interview Alerts',
-                style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Allow Lucky Boss to notify you immediately when corporate employers shortlist your profile or schedule an interview.',
-                style: AppTheme.sansRegular(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _finalizeAndNavigateHome();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emeraldDark,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text('Allow Notifications ✓', style: AppTheme.sansBold(fontSize: 14.5, color: Colors.white)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _finalizeAndNavigateHome();
-                },
-                child: Text('Maybe Later', style: AppTheme.sansBold(fontSize: 13, color: AppTheme.textMuted)),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _finalizeAndNavigateHome() async {
     final provider = Provider.of<JobSeekerProvider>(context, listen: false);
     await provider.completeProfileSetup();
@@ -324,7 +254,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         Text('Experience Level', style: AppTheme.sansBold(fontSize: 13, color: AppTheme.primaryNavy)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<ExperienceLevel>(
-                          value: tempLevel,
+                          initialValue: tempLevel,
                           items: ExperienceLevel.values.map((lvl) {
                             return DropdownMenuItem(value: lvl, child: Text(lvl.label));
                           }).toList(),
@@ -342,7 +272,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         Text('Job Category', style: AppTheme.sansBold(fontSize: 13, color: AppTheme.primaryNavy)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          value: tempCategory,
+                          initialValue: tempCategory,
                           items: AppData.categories.where((c) => c != 'All Roles').map((cat) {
                             return DropdownMenuItem(value: cat, child: Text(cat));
                           }).toList(),
@@ -614,7 +544,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           Text('Experience Level', style: AppTheme.sansBold(fontSize: 13, color: AppTheme.primaryNavy)),
           const SizedBox(height: 6),
           DropdownButtonFormField<ExperienceLevel>(
-            value: _selectedLevel,
+            initialValue: _selectedLevel,
             items: ExperienceLevel.values.map((lvl) {
               return DropdownMenuItem(value: lvl, child: Text(lvl.label));
             }).toList(),
@@ -634,7 +564,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           Text('Target Job Category', style: AppTheme.sansBold(fontSize: 13, color: AppTheme.primaryNavy)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedCategory,
+            initialValue: _selectedCategory,
             items: AppData.categories.where((c) => c != 'All Roles').map((cat) {
               return DropdownMenuItem(value: cat, child: Text(cat));
             }).toList(),

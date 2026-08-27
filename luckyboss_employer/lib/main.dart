@@ -22,19 +22,20 @@ class LuckyBossEmployerApp extends StatelessWidget {
         title: 'Lucky Boss Portal',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light,
         builder: (context, child) {
           final isDesktop = MediaQuery.of(context).size.width > 500;
           if (!isDesktop) return child!;
 
           return Scaffold(
-            backgroundColor: const Color(0xFF0F172A),
+            backgroundColor: const Color(0xFF14100C),
             body: Center(
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 420, maxHeight: 900),
                 margin: const EdgeInsets.symmetric(vertical: 24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.paper,
                   borderRadius: BorderRadius.circular(36),
                   boxShadow: [
                     BoxShadow(
