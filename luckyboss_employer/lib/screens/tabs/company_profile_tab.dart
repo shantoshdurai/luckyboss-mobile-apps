@@ -83,21 +83,21 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
   Widget build(BuildContext context) {
     final provider = context.watch<EmployerProvider>();
 
-    return Scaffold(
-      backgroundColor: AppTheme.paper,
-      appBar: AppBar(
-        title: Text('Company Profile', style: AppTheme.screenTitle(size: 18)),
-        backgroundColor: AppTheme.surface,
-        elevation: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(2),
-          child: BrandRule(),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+    return SafeArea(
+      child: Column(
         children: [
-          // 1. Company Card
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            color: AppTheme.surface,
+            width: double.infinity,
+            child: Text('Company Profile', style: AppTheme.screenTitle(size: 18)),
+          ),
+          const BrandRule(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              children: [
+                // 1. Company Card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -204,21 +204,43 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
               children: [
                 const MetaText('Recruiter Settings'),
                 const SizedBox(height: 10),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('New Applicant Alerts', style: AppTheme.rowTitle(size: 13.5)),
-                  subtitle: Text('Notify instantly on high AI-fit candidates', style: AppTheme.body(size: 11.5)),
-                  value: _candidateAlerts,
-                  activeThumbColor: AppTheme.signalPositive,
-                  onChanged: (val) => setState(() => _candidateAlerts = val),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('New Applicant Alerts', style: AppTheme.rowTitle(size: 13.5)),
+                          const SizedBox(height: 2),
+                          Text('Notify instantly on high AI-fit candidates', style: AppTheme.body(size: 11.5)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _candidateAlerts,
+                      activeColor: AppTheme.signalPositive,
+                      onChanged: (val) => setState(() => _candidateAlerts = val),
+                    ),
+                  ],
                 ),
-                const Divider(height: 1, color: AppTheme.rule),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.security_rounded, color: AppTheme.ink, size: 18),
-                  title: Text('Data Privacy & ATS Compliance', style: AppTheme.rowTitle(size: 13.5)),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.inkMuted, size: 18),
+                const Divider(height: 16, color: AppTheme.rule),
+                InkWell(
                   onTap: () => _showPrivacyPolicy(context),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.security_rounded, color: AppTheme.ink, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text('Data Privacy & ATS Compliance', style: AppTheme.rowTitle(size: 13.5)),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.inkMuted, size: 18),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -249,6 +271,9 @@ class _CompanyProfileTabState extends State<CompanyProfileTab> {
           ),
         ],
       ),
-    );
+    ),
+  ],
+),
+);
   }
 }

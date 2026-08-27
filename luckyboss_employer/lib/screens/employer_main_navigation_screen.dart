@@ -27,7 +27,10 @@ class _EmployerMainNavigationScreenState extends State<EmployerMainNavigationScr
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.paper,
-      body: _tabs[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _tabs,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppTheme.ink,
         foregroundColor: AppTheme.surface,

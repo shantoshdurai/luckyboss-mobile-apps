@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:luckybossemployer/main.dart';
+import 'package:provider/provider.dart';
+import 'package:luckybossemployer/providers/employer_provider.dart';
+import 'package:luckybossemployer/screens/employer_main_navigation_screen.dart';
 
 void main() {
-  testWidgets('LuckyBoss Employer App smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const LuckyBossEmployerApp());
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byType(MaterialApp), findsOneWidget);
+  testWidgets('Employer Main Navigation and Tabs render without errors', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => EmployerProvider(),
+        child: const MaterialApp(
+          home: EmployerMainNavigationScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(EmployerMainNavigationScreen), findsOneWidget);
   });
 }

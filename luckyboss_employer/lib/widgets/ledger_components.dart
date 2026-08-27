@@ -549,17 +549,20 @@ class LockedActionTile extends StatelessWidget {
   const LockedActionTile({super.key, required this.icon, required this.label, this.onUpgrade});
 
   @override
-  Widget build(BuildContext context) => ListTile(
-        enabled: false,
-        leading: Icon(icon, size: 19, color: AppTheme.inkFaint),
-        title: Text(label, style: AppTheme.body(color: AppTheme.inkFaint)),
-        trailing: TextButton(
-          onPressed: onUpgrade,
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.signalAttention,
-            textStyle: AppTheme.meta(color: AppTheme.signalAttention, size: 10),
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: ListTile(
+          enabled: false,
+          leading: Icon(icon, size: 19, color: AppTheme.inkFaint),
+          title: Text(label, style: AppTheme.body(color: AppTheme.inkFaint)),
+          trailing: TextButton(
+            onPressed: onUpgrade,
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.signalAttention,
+              textStyle: AppTheme.meta(color: AppTheme.signalAttention, size: 10),
+            ),
+            child: const Text('UPGRADE'),
           ),
-          child: const Text('UPGRADE'),
         ),
       );
 }

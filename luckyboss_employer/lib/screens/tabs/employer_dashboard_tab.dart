@@ -134,10 +134,8 @@ class _EmployerDashboardTabState extends State<EmployerDashboardTab> {
   Widget build(BuildContext context) {
     final provider = context.watch<EmployerProvider>();
 
-    return Scaffold(
-      backgroundColor: AppTheme.paper,
-      body: SafeArea(
-        child: ListView(
+    return SafeArea(
+      child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
           children: [
             // Top App Bar
@@ -304,8 +302,7 @@ class _EmployerDashboardTabState extends State<EmployerDashboardTab> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildCreditStat(String label, String value, Color color) {

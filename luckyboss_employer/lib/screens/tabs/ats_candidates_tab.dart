@@ -38,15 +38,12 @@ class _AtsCandidatesTabState extends State<AtsCandidatesTab> {
     final jobs = provider.jobs;
 
     if (jobs.isEmpty) {
-      return Scaffold(
-        backgroundColor: AppTheme.paper,
-        body: const SafeArea(
-          child: LedgerEmptyState(
-            headline: 'No vacancies yet',
-            explanation:
-                'Candidates appear here once you publish a job. Post a vacancy to start '
-                'receiving applicants and recommendations.',
-          ),
+      return const SafeArea(
+        child: LedgerEmptyState(
+          headline: 'No vacancies yet',
+          explanation:
+              'Candidates appear here once you publish a job. Post a vacancy to start '
+              'receiving applicants and recommendations.',
         ),
       );
     }
@@ -56,48 +53,45 @@ class _AtsCandidatesTabState extends State<AtsCandidatesTab> {
     final candidates = provider.candidatesFor(job.id, source: _filter);
     final archived = provider.archivedFor(job.id);
 
-    return Scaffold(
-      backgroundColor: AppTheme.paper,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _Header(job: job, jobs: jobs, onJobChanged: (id) => setState(() => _jobId = id)),
-            const BrandRule(),
-            _SourceFilter(
-              active: _filter,
-              counts: {
-                null: provider.countFor(job.id),
-                CandidateSource.applied: provider.countFor(job.id, source: CandidateSource.applied),
-                CandidateSource.recommended:
-                    provider.countFor(job.id, source: CandidateSource.recommended),
-                CandidateSource.external: provider.countFor(job.id, source: CandidateSource.external),
-              },
-              onChanged: (s) => setState(() => _filter = s),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: candidates.isEmpty
-                  ? _emptyFor(_filter)
-                  : ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: candidates.length + 1,
-                      separatorBuilder: (_, i) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        if (i == candidates.length) {
-                          return _ArchivedSection(
-                            archived: archived,
-                            expanded: _archivedExpanded,
-                            onToggle: () => setState(() => _archivedExpanded = !_archivedExpanded),
-                            onRestore: (id) => provider.restoreCandidate(id),
-                          );
-                        }
-                        return _CandidateRow(candidate: candidates[i]);
-                      },
-                    ),
-            ),
-          ],
-        ),
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          _Header(job: job, jobs: jobs, onJobChanged: (id) => setState(() => _jobId = id)),
+          const BrandRule(),
+          _SourceFilter(
+            active: _filter,
+            counts: {
+              null: provider.countFor(job.id),
+              CandidateSource.applied: provider.countFor(job.id, source: CandidateSource.applied),
+              CandidateSource.recommended:
+                  provider.countFor(job.id, source: CandidateSource.recommended),
+              CandidateSource.external: provider.countFor(job.id, source: CandidateSource.external),
+            },
+            onChanged: (s) => setState(() => _filter = s),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: candidates.isEmpty
+                ? _emptyFor(_filter)
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: candidates.length + 1,
+                    separatorBuilder: (_, i) => const Divider(height: 1),
+                    itemBuilder: (context, i) {
+                      if (i == candidates.length) {
+                        return _ArchivedSection(
+                          archived: archived,
+                          expanded: _archivedExpanded,
+                          onToggle: () => setState(() => _archivedExpanded = !_archivedExpanded),
+                          onRestore: (id) => provider.restoreCandidate(id),
+                        );
+                      }
+                      return _CandidateRow(candidate: candidates[i]);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -234,15 +228,18 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 16),
             const MetaText('Choose a vacancy'),
             const SizedBox(height: 10),
-            ...jobs.map((j) => ListTile(
-                  title: Text(j.title, style: AppTheme.body(color: AppTheme.ink, weight: FontWeight.w600)),
-                  subtitle: Text('${j.location} · ${j.applicantsCount} candidates',
-                      style: AppTheme.small()),
-                  selected: j.id == job.id,
-                  onTap: () {
-                    onJobChanged(j.id);
-                    Navigator.pop(context);
-                  },
+            ...jobs.map((j) => Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    title: Text(j.title, style: AppTheme.body(color: AppTheme.ink, weight: FontWeight.w600)),
+                    subtitle: Text('${j.location} · ${j.applicantsCount} candidates',
+                        style: AppTheme.small()),
+                    selected: j.id == job.id,
+                    onTap: () {
+                      onJobChanged(j.id);
+                      Navigator.pop(context);
+                    },
+                  ),
                 )),
             const SizedBox(height: 8),
           ],
@@ -594,23 +591,26 @@ class _ActionsSheet extends StatelessWidget {
 
   Widget _action(BuildContext context, IconData icon, String label,
           {VoidCallback? onTap, bool destructive = false}) =>
-      ListTile(
-        leading: Icon(icon,
-            size: 19, color: destructive ? AppTheme.signalClosed : AppTheme.inkMuted),
-        title: Text(label,
-            style: AppTheme.body(
-              color: destructive ? AppTheme.signalClosed : AppTheme.ink,
-              weight: FontWeight.w500,
-            )),
-        onTap: () {
-          Navigator.pop(context);
-          if (onTap != null) {
-            onTap();
-          } else {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text('$label is not wired up yet.')));
-          }
-        },
+      Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(icon,
+              size: 19, color: destructive ? AppTheme.signalClosed : AppTheme.inkMuted),
+          title: Text(label,
+              style: AppTheme.body(
+                color: destructive ? AppTheme.signalClosed : AppTheme.ink,
+                weight: FontWeight.w500,
+              )),
+          onTap: () {
+            Navigator.pop(context);
+            if (onTap != null) {
+              onTap();
+            } else {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('$label is not wired up yet.')));
+            }
+          },
+        ),
       );
 
   void _changeStatus(BuildContext context) {
@@ -631,14 +631,17 @@ class _ActionsSheet extends StatelessWidget {
               const SizedBox(height: 10),
               // All 17 statuses the spec defines. Six colours across them; the
               // word carries the precision.
-              ...CandidateStageStyle.allStatuses.map((s) => ListTile(
-                    dense: true,
-                    title: Row(children: [StagePill(s)]),
-                    selected: s == candidate.status,
-                    onTap: () {
-                      provider.updateApplicantStatus(candidate.id, s);
-                      Navigator.pop(context);
-                    },
+              ...CandidateStageStyle.allStatuses.map((s) => Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      dense: true,
+                      title: Row(children: [StagePill(s)]),
+                      selected: s == candidate.status,
+                      onTap: () {
+                        provider.updateApplicantStatus(candidate.id, s);
+                        Navigator.pop(context);
+                      },
+                    ),
                   )),
               const SizedBox(height: 12),
             ],
@@ -677,13 +680,16 @@ class _ActionsSheet extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              ...ArchiveReasons.all.map((r) => ListTile(
-                    dense: true,
-                    title: Text(r, style: AppTheme.body(color: AppTheme.ink)),
-                    onTap: () {
-                      provider.archiveCandidate(candidate.id, r);
-                      Navigator.pop(context);
-                    },
+              ...ArchiveReasons.all.map((r) => Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      dense: true,
+                      title: Text(r, style: AppTheme.body(color: AppTheme.ink)),
+                      onTap: () {
+                        provider.archiveCandidate(candidate.id, r);
+                        Navigator.pop(context);
+                      },
+                    ),
                   )),
               const SizedBox(height: 12),
             ],
