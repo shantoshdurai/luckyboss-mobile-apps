@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.userapp.luckyboss_jobseeker"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
