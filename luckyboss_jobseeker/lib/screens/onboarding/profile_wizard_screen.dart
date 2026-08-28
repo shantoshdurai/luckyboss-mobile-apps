@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/onboarding_model.dart';
 import '../../providers/job_seeker_provider.dart';
+import '../../services/auth_service.dart';
 import '../../services/resume_service.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/city_field.dart';
 import '../main_navigation_screen.dart';
+import 'steps/account_step.dart';
 import 'steps/education_step.dart';
 import 'steps/field_details_step.dart';
 import 'steps/key_skills_step.dart';
@@ -50,33 +52,41 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   int _step = 0;
   bool _parsingResume = false;
 
-  /// Three questions either way, but not the same three.
-  static const int _totalSteps = 3;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  /// Four now: who you are, then what work, then the trade, then the details.
+  static const int _totalSteps = 4;
 
   /// The category is always first. What follows depends on the path it sits on,
   /// and the labels have to follow too — a scaffolder shown a step called
   /// "Background" is being asked, in the app's own words, for a CV.
   List<String> get _stepLabels => _data.isFieldWork
-      ? const ['Your work', 'Your trade', 'Last details']
-      : const ['Your work', 'Background', 'Your skills'];
+      ? const ['Your account', 'Your work', 'Your trade', 'Last details']
+      : const ['Your account', 'Your work', 'Background', 'Your skills'];
 
   @override
   void dispose() {
     _cityController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     _pager.dispose();
     super.dispose();
   }
 
   bool get _canAdvance => switch (_step) {
-        0 => _data.categoryStepComplete,
-        1 => _data.isFieldWork
+        0 => _data.accountStepComplete,
+        1 => _data.categoryStepComplete,
+        2 => _data.isFieldWork
             ? _data.tradeStepComplete
             : (_data.track != null &&
                 _data.currentCity.trim().isNotEmpty &&
                 (_data.isStudent
                     ? _data.educationStepComplete
                     : _data.workStepComplete)),
-        2 => _data.isFieldWork
+        3 => _data.isFieldWork
             ? _data.fieldDetailsStepComplete
             : _data.skillsStepComplete,
         _ => false,
@@ -120,6 +130,20 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   /// them.
   Future<void> _finish() async {
     final provider = context.read<JobSeekerProvider>();
+
+    // Written before anything else: the identity is what the rest of the
+    // profile hangs off, and it is the field the completion nudge was asking
+    // for on every launch.
+    if (_data.name.trim().isNotEmpty) {
+      await provider.setProfileField('name', _data.name.trim());
+    }
+    if (_data.email.trim().isNotEmpty) {
+      await provider.setProfileField('email', _data.email.trim());
+    }
+    await AuthService.updateIdentity(
+      name: _data.name.trim().isEmpty ? null : _data.name.trim(),
+      email: _data.email.trim().isEmpty ? null : _data.email.trim(),
+    );
 
     provider.setSkills(_data.skills);
     provider.applyOnboarding(
@@ -268,6 +292,16 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
                 controller: _pager,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
+                  _scroll(
+                    AccountStep(
+                      data: _data,
+                      phone: context.watch<JobSeekerProvider>().profile.phone,
+                      nameController: _nameController,
+                      emailController: _emailController,
+                      passwordController: _passwordController,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
                   _scroll(
                     WorkCategoryStep(
                       selected: _data.category,
@@ -477,7 +511,7 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
         top: false,
         child: Row(
           children: [
-            if (_step == 2 && !_data.isFieldWork)
+            if (_step == 3 && !_data.isFieldWork)
               Expanded(
                 flex: 2,
                 child: Text(

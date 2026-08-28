@@ -65,6 +65,16 @@ class OnboardingData {
   // So the category is chosen first, and [WorkPath] on it decides which
   // questions follow.
   // ---------------------------------------------------------------------------
+  // --- Account, asked first ---
+  //
+  // The app never asked for a name anywhere, so the completion nudge said "Add
+  // your name" forever with nowhere to type one.
+  String name = '';
+  String email = '';
+  String password = '';
+
+  bool get accountStepComplete => name.trim().isNotEmpty;
+
   /// The kind of work being looked for. One, not several.
   ///
   /// Briefly allowed three, and reverted: every screen after this one is built

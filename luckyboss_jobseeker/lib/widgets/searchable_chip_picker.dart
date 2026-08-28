@@ -3,28 +3,32 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'onboarding_components.dart';
 
-/// A chip picker that can be searched, and typed into when the list falls short.
+/// A chip picker that shows a few, searches the rest, and suggests what fits.
 ///
-/// Built because both apps had the same problem from opposite ends. An employer
-/// picking what a Construction job requires was shown twenty-five ability chips
-/// with no way to filter — Shantosh's words, *"they cant even search skills"* —
-/// and a candidate picking their own abilities had the same wall. Scrolling a
-/// grid hunting for "Scaffolding" is not selection, it is search done by eye.
+/// The first version rendered every option at once. For "Work you can do" in
+/// Construction that is forty-odd chips — a page and a half of scrolling before
+/// the next question, with no way to tell the useful ones from the rest.
+/// Shantosh: *"don't put all, have like few and have expand view all, and they
+/// search and [the] model recommend related skills — having like this looks
+/// bad."*
 ///
-/// Three behaviours worth keeping:
+/// So it shows [collapsedCount] to begin with, ordered by relevance rather than
+/// alphabetically, and everything else is one tap or one search away. Three
+/// rules hold it together:
 ///
-/// * **The search box only appears when it earns its place.** Below
-///   [searchThreshold] options there is nothing to search, and an empty text
-///   field above six chips is one more thing to read past.
-/// * **Selected chips stay visible while filtering.** Typing "weld" must not
-///   hide the four things already chosen, or it looks like the taps were lost.
-/// * **Anything typed can be added.** No list of trades is complete. A
-///   shuttering carpenter who cannot enter "shuttering" has been told the app
-///   does not cover him.
+/// * **What is already chosen is always visible**, wherever it sits in the
+///   list. A selection that scrolls out of view looks like a lost tap.
+/// * **[suggested] comes first.** These are the abilities of the specific trade
+///   the candidate picked, so they are the ones most likely to apply.
+/// * **Anything typed can be added.** No list of trades is complete.
 class SearchableChipPicker extends StatefulWidget {
   final List<String> options;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+
+  /// Options worth offering first — normally the chosen role's own abilities,
+  /// rather than everything anyone in the category might do.
+  final List<String> suggested;
 
   /// Single choice: tapping a chip replaces the selection rather than adding
   /// to it. Used for a trade, where claiming three is not credible.
@@ -36,6 +40,9 @@ class SearchableChipPicker extends StatefulWidget {
   /// How many options before the search box appears.
   final int searchThreshold;
 
+  /// How many chips to show before "Show all".
+  final int collapsedCount;
+
   final String searchHint;
 
   const SearchableChipPicker({
@@ -43,9 +50,11 @@ class SearchableChipPicker extends StatefulWidget {
     required this.options,
     required this.selected,
     required this.onToggle,
+    this.suggested = const [],
     this.single = false,
     this.allowCustom = true,
     this.searchThreshold = 12,
+    this.collapsedCount = 10,
     this.searchHint = 'Search or type your own',
   });
 
@@ -57,6 +66,8 @@ class _SearchableChipPickerState extends State<SearchableChipPicker> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _focus = FocusNode();
 
+  bool _expanded = false;
+
   @override
   void dispose() {
     _search.dispose();
@@ -66,27 +77,50 @@ class _SearchableChipPickerState extends State<SearchableChipPicker> {
 
   String get _query => _search.text.trim().toLowerCase();
 
-  /// The chips to render.
+  /// Every option, best first.
   ///
-  /// Anything already selected survives the filter, and anything selected that
-  /// is not in [options] at all — a typed entry — is appended so it does not
-  /// vanish when the sheet is reopened.
-  List<String> get _visible {
-    final extras = widget.selected.where((s) => !widget.options.contains(s));
-    final all = [...widget.options, ...extras];
-    if (_query.isEmpty) return all;
-    return all
-        .where((o) =>
-            o.toLowerCase().contains(_query) || widget.selected.contains(o))
-        .toList();
+  /// Suggested, then selected, then the rest — so the chips a candidate is
+  /// most likely to want are the ones they see without expanding anything.
+  List<String> get _ordered {
+    final seen = <String>{};
+    final out = <String>[];
+
+    void add(Iterable<String> items) {
+      for (final item in items) {
+        if (seen.add(item)) out.add(item);
+      }
+    }
+
+    add(widget.suggested.where(widget.options.contains));
+    add(widget.selected);
+    add(widget.options);
+    return out;
   }
 
-  /// True when what has been typed is not already an option, so it can be added.
+  /// What to render, after the search box and the collapse.
+  List<String> get _visible {
+    final all = _ordered;
+    if (_query.isNotEmpty) {
+      // Searching means the candidate knows what they want — show every match
+      // rather than a truncated list they would then have to expand.
+      return all
+          .where((o) =>
+              o.toLowerCase().contains(_query) || widget.selected.contains(o))
+          .toList();
+    }
+    if (_expanded || all.length <= widget.collapsedCount) return all;
+
+    // Collapsed: the first N, plus anything selected that falls outside them.
+    final head = all.take(widget.collapsedCount).toList();
+    final selectedOutside =
+        widget.selected.where((s) => !head.contains(s)).toList();
+    return [...head, ...selectedOutside];
+  }
+
   bool get _canAddTyped {
     final typed = _search.text.trim();
     if (!widget.allowCustom || typed.isEmpty) return false;
-    return !widget.options
-            .any((o) => o.toLowerCase() == typed.toLowerCase()) &&
+    return !widget.options.any((o) => o.toLowerCase() == typed.toLowerCase()) &&
         !widget.selected.any((s) => s.toLowerCase() == typed.toLowerCase());
   }
 
@@ -103,6 +137,7 @@ class _SearchableChipPickerState extends State<SearchableChipPicker> {
   Widget build(BuildContext context) {
     final showSearch = widget.options.length >= widget.searchThreshold;
     final visible = _visible;
+    final hiddenCount = _ordered.length - visible.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,6 +231,37 @@ class _SearchableChipPickerState extends State<SearchableChipPicker> {
                 ),
             ],
           ),
+
+        // Only while collapsed and unsearched — expanding is meaningless once a
+        // query is narrowing the list anyway.
+        if (_query.isEmpty && (hiddenCount > 0 || _expanded)) ...[
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _expanded ? 'Show fewer' : 'Show all ${_ordered.length}',
+                    style: AppTheme.sansBold(
+                        fontSize: 13, color: AppTheme.royalBlue),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 17,
+                    color: AppTheme.royalBlue,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

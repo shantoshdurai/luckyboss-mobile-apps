@@ -16,10 +16,15 @@ import '../widgets/searchable_chip_picker.dart';
 /// profile was incomplete because it had no name, and offered no way to type
 /// one. The name came from registration and nothing could change it afterwards.
 ///
-/// One screen, everything visible, saved as it is typed. There is no Save
-/// button because there is nothing to submit — the profile is on the device,
-/// and a Save button on a form that has already saved is how the licences sheet
-/// misled people earlier.
+/// One screen, everything visible, saved as it is typed — and a Save button
+/// anyway.
+///
+/// I left the button out first, on the grounds that a form which has already
+/// saved has nothing to submit. Shantosh asked for it back, and he is right:
+/// on a long form the button is not a mechanism, it is the signal that you are
+/// finished and nothing was dropped. Leaving it out saves one widget and costs
+/// the user the confidence to walk away. It flushes to disk and closes the
+/// screen, so it does something real rather than being decoration.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -151,6 +156,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             label: 'Work you can do',
             options: AppData.abilitiesFor(
                 category: profile.preferredCategory, role: role),
+            suggested: category?.role(role)?.abilities ?? const [],
             selected: profile.skills.toSet(),
             hint: 'Search the work you do',
             onToggle: (a) {
@@ -257,32 +263,55 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceOf(context),
-              borderRadius: BorderRadius.circular(13),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _save,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text('Save',
+                  style: AppTheme.sansBold(
+                      fontSize: 15, color: AppTheme.onPrimaryFillOf(context))),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_outline,
-                    size: 17, color: AppTheme.signalPositive),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Everything here saves as you type. There is nothing to '
-                    'submit.',
-                    style: AppTheme.sansMedium(
-                        fontSize: 12.5, color: AppTheme.inkMutedOf(context)),
-                  ),
-                ),
-              ],
-            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: Text('Your changes are kept as you type, too.',
+                style: AppTheme.sansRegular(
+                    fontSize: 12, color: AppTheme.inkFaintOf(context))),
           ),
         ],
       ),
     );
+  }
+
+  /// Writes anything still sitting in the debounce and closes the screen.
+  Future<void> _save() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    FocusScope.of(context).unfocus();
+
+    // flush() forces the pending write rather than waiting out the 400ms
+    // debounce — which matters when the next thing that happens is the app
+    // being closed.
+    await _provider.flush();
+    if (!mounted) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Profile saved.',
+            style: AppTheme.sansMedium(
+                fontSize: 13, color: AppTheme.onInkOf(context))),
+        backgroundColor: AppTheme.signalPositive,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    navigator.pop();
   }
 
   // ------------------------------------------------------------------ pieces
@@ -353,12 +382,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required Set<String> selected,
     required ValueChanged<String> onToggle,
     required String hint,
+    List<String> suggested = const [],
     bool single = false,
   }) =>
       _labelled(
         label,
         SearchableChipPicker(
           options: options,
+          suggested: suggested,
           selected: selected,
           single: single,
           searchHint: hint.isEmpty ? 'Search' : hint,

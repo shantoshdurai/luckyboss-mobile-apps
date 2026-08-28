@@ -229,9 +229,15 @@ class SeekerProfileModel {
 
   /// First choice. Matching scores against every chosen category and takes the
   /// best, but the profile header and the field/office split need one answer.
-  String get preferredCategory => preferredCategories.isEmpty
-      ? AppData.categories.first
-      : preferredCategories.first;
+  /// Empty when unset, not a placeholder.
+  ///
+  /// This returned `AppData.categories.first`, which is the literal string
+  /// "All Roles" — a filter label, not a category. Anything looking it up got
+  /// null and silently fell back to every ability in the app, so a candidate
+  /// with no category chosen was offered bricklaying, nursing and Kubernetes in
+  /// one list.
+  String get preferredCategory =>
+      preferredCategories.isEmpty ? '' : preferredCategories.first;
 
   /// Replaces the whole list with one category.
   ///

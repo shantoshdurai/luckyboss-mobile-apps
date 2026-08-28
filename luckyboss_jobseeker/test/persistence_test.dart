@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:luckyboss_jobseeker/core/constants/app_data.dart';
+import 'package:luckyboss_jobseeker/models/onboarding_model.dart';
 import 'package:luckyboss_jobseeker/models/seeker_profile_model.dart';
 import 'package:luckyboss_jobseeker/providers/job_seeker_provider.dart';
 import 'package:luckyboss_jobseeker/services/auth_service.dart';
@@ -185,6 +186,57 @@ void main() {
       });
 
       expect(await LocalStore.loadProfile(), isNull);
+    });
+  });
+
+  group('onboarding asks for a name before anything else', () {
+    test('the account step gates the wizard', () {
+      final data = OnboardingData();
+
+      // The nag that would not go away: the app told candidates to add their
+      // name on every launch and never asked for one.
+      expect(data.accountStepComplete, isFalse);
+      data.name = 'Santosh';
+      expect(data.accountStepComplete, isTrue);
+    });
+
+    test('one category, not several', () {
+      final data = OnboardingData()..category = 'Construction';
+
+      expect(data.categoryStepComplete, isTrue);
+      expect(data.categories, ['Construction']);
+
+      // Reverted deliberately: every screen after this is built from the
+      // chosen category's vocabulary, so a second choice had nowhere to go.
+      data.category = 'Warehouse & Logistics';
+      expect(data.categories, ['Warehouse & Logistics']);
+    });
+
+    test('the name reaches the profile and the session', () async {
+      final provider = JobSeekerProvider();
+      await provider.hydrateFromDevice();
+
+      await provider.setProfileField('name', 'Santosh Durai');
+      await provider.setProfileField('email', 'santosh@example.com');
+      await provider.flush();
+
+      final reopened = JobSeekerProvider();
+      await reopened.hydrateFromDevice();
+
+      expect(reopened.profile.name, 'Santosh Durai');
+      expect(reopened.profile.email, 'santosh@example.com');
+      // With a name on file the completion nudge stops asking for one.
+      expect(reopened.nextProfileStep, isNot('Add your name'));
+    });
+
+    test('an unset category no longer reports itself as "All Roles"', () {
+      final profile = SeekerProfileModel();
+
+      // It used to return the filter label, so every lookup missed and the
+      // candidate was offered every ability in the app at once.
+      expect(profile.preferredCategory, isEmpty);
+      expect(AppData.abilitiesFor(category: '', role: 'Warehouse Assistant'),
+          isNot(contains('Brickwork')));
     });
   });
 

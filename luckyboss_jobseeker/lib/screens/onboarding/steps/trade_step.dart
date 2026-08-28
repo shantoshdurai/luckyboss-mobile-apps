@@ -126,6 +126,9 @@ class _TradeStepState extends State<TradeStep> {
           child: SearchableChipPicker(
             options:
                 AppData.abilitiesFor(category: category.name, role: data.roleTitle),
+            // The chosen trade's own tasks lead, so a plumber sees pipe fitting
+            // and leak repairs before the rest of the site's work.
+            suggested: category.role(data.roleTitle)?.abilities ?? const [],
             selected: data.skills.toSet(),
             searchHint: 'Search the work you do, or type it',
             onToggle: (a) {
