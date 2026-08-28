@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../providers/job_seeker_provider.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
 import '../../widgets/phone_number_field.dart';
-import '../main_navigation_screen.dart';
-import '../onboarding/profile_wizard_screen.dart';
 import 'email_sign_in_screen.dart';
 import 'otp_verification_screen.dart';
 import 'register_screen.dart';
@@ -72,51 +68,6 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Future<void> _continueAsDemo() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-
-    final result = await AuthService.loginDemo();
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!result.success) {
-      setState(() => _error = result.message);
-      return;
-    }
-    _enterApp(result.session!);
-  }
-
-  /// Routes a signed-in candidate onward.
-  ///
-  /// The demo account skips profile setup — it already has a filled profile,
-  /// and the server would refuse the writes that wizard makes anyway, so
-  /// sending a demo user through it would dead-end them.
-  void _enterApp(AuthSession session) {
-    final provider = context.read<JobSeekerProvider>();
-    provider.setAuthenticated(true, phone: session.phone);
-    provider.setDemoMode(session.isDemo);
-    if (session.name.isNotEmpty || session.email.isNotEmpty) {
-      provider.updateProfileBasicInfo(
-        name: session.name,
-        email: session.email,
-      );
-    }
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => session.isDemo
-            ? const MainNavigationScreen()
-            : const ProfileWizardScreen(),
-      ),
-      (route) => false,
-    );
-  }
-
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -160,12 +111,6 @@ class _SignInScreenState extends State<SignInScreen> {
                       context,
                       MaterialPageRoute(builder: (_) => const EmailSignInScreen()),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _secondaryButton(
-                    icon: Icons.play_circle_outline,
-                    label: 'See how it works',
-                    onTap: _continueAsDemo,
                   ),
                   const SizedBox(height: 26),
                   _registerLink(),

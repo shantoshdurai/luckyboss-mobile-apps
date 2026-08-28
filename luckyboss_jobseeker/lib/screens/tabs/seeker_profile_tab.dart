@@ -776,7 +776,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               ),
               onPressed: () async {
                 await AuthService.logout();
-                provider.setAuthenticated(false);
+                await provider.signOut();
                 if (context.mounted) {
                   Navigator.pushAndRemoveUntil(
                     context,

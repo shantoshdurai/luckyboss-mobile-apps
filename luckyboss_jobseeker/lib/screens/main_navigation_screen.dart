@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
-import '../providers/job_seeker_provider.dart';
-import 'auth/sign_in_screen.dart';
 import '../widgets/app_drawer.dart';
 import 'jobs/job_search_screen.dart';
 import 'tabs/seeker_dashboard_tab.dart';
@@ -37,66 +34,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         const SeekerProfileTab(),
       ];
 
-  /// Persistent reminder that this is the demo, with the way out of it.
-  ///
-  /// Kept as a bar rather than a one-off toast: someone shown the app for the
-  /// first time should never be left wondering whether the data in front of
-  /// them is theirs. Writes are refused by the server regardless — this exists
-  /// so the refusal is never a surprise.
-  Widget _demoBanner(BuildContext context) => Material(
-        color: AppTheme.signalSourceWash,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 9, 10, 9),
-            child: Row(
-              children: [
-                const Icon(Icons.visibility_outlined,
-                    size: 16, color: AppTheme.signalSource),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    'Demo mode — browsing sample data. Applying and editing are off.',
-                    style: AppTheme.sansMedium(
-                        fontSize: 12.5, color: AppTheme.signalSource),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SignInScreen()),
-                    (route) => false,
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text('Exit',
-                      style: AppTheme.sansBold(
-                          fontSize: 12.5, color: AppTheme.signalSource)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
       drawer: AppDrawer(onNavigate: _goToTab),
-      body: Column(
-        children: [
-          if (context.watch<JobSeekerProvider>().isDemoMode) _demoBanner(context),
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _tabs,
-            ),
-          ),
-        ],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _tabs,
       ),
       // The 'Ask Lucky AI' FAB was a second entry point to the same assistant
       // already reachable from the header icon, and it sat on top of the job

@@ -82,7 +82,7 @@ class AppDrawer extends StatelessWidget {
               child: _item(
                 context,
                 Icons.logout,
-                provider.isDemoMode ? 'Exit demo' : 'Sign out',
+                'Sign out',
                 () => _signOut(context),
                 danger: true,
               ),

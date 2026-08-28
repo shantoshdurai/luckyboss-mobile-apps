@@ -41,9 +41,8 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
     }
 
-    if (session != null && (isProfileDone || session.isDemo)) {
-      // Returning candidate with a complete profile, or the demo account whose
-      // profile is already seeded — straight into the app.
+    if (session != null && isProfileDone) {
+      // Returning candidate with a complete profile — straight into the app.
       await provider.checkAuthStatus();
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -51,16 +50,14 @@ class _SplashScreenState extends State<SplashScreen> {
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     } else if (session != null && provider.profile.skills.isNotEmpty) {
-      // Server had a usable profile even though this device had not recorded
-      // the wizard as finished.
+      // Server or local storage had a usable profile with skills
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     } else if (session != null) {
-      // Signed in but setup unfinished — resume the wizard where they left it.
+      // Signed in but setup unfinished — resume the wizard
       provider.setAuthenticated(true, phone: session.phone);
-      provider.setDemoMode(session.isDemo);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

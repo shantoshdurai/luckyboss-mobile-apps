@@ -632,7 +632,7 @@ class JobSeekerProvider extends ChangeNotifier {
   /// updated and the user has moved on, so a failure is logged rather than
   /// thrown back at them mid-edit.
   Future<void> syncProfile() async {
-    if (_syncing || _isDemoMode) return;
+    if (_syncing) return;
     _syncing = true;
     try {
       await ProfileSyncService.push(_profile);
