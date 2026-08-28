@@ -1,5 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Profile photo capture (spec section 31). CAMERA is requested at runtime
+         by permission_handler; declaring it here is what makes that request
+         possible at all - an undeclared permission is denied without ever
+         showing the user a dialog. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+
+    <!-- Gallery selection. READ_MEDIA_IMAGES is the Android 13+ (API 33)
+         permission; READ_EXTERNAL_STORAGE is its predecessor and is capped at
+         API 32 so newer devices do not request a permission that no longer
+         governs anything. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+
+    <!-- The app is useful without a camera (gallery upload, or no photo at all),
+         so this must not become an installation filter on Play. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="Lucky Boss"
         android:name="${applicationName}"

@@ -37,6 +37,13 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
   flutter_animate: ^4.5.0
+  # Camera + gallery capture for the profile photo (spec section 31).
+  image_picker: ^1.1.2
+  # Distinguishes "denied" from "permanently denied" so the app can offer to
+  # open Settings instead of re-prompting a dialog the OS will never show again.
+  permission_handler: ^11.3.1
+  # Resume upload (PDF/DOC/DOCX). image_picker cannot select documents.
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

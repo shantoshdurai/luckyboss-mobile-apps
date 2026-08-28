@@ -1,3 +1,5 @@
+import '../core/theme/app_theme.dart';
+
 class JobModel {
   final String id;
   final String title;
@@ -14,6 +16,23 @@ class JobModel {
   final DateTime postedDate;
   bool isBookmarked;
 
+  /// Where this listing came from. The specification requires that a
+  /// third-party listing always shows its source — a seeker deciding whether to
+  /// trust a posting needs to know who published it.
+  final JobSource source;
+
+  /// The actual provider name, for external listings. "External" alone tells a
+  /// seeker nothing about whether the listing can be trusted.
+  final String? sourceName;
+
+  /// Closing date, where the employer set one. Drives the "closing soon" state.
+  final DateTime? closingDate;
+
+  /// Set when the employer has made this a paid application. Null means free,
+  /// which is the default until an admin turns candidate monetisation on.
+  final double? applicationFee;
+  final String? applicationFeeCurrency;
+
   JobModel({
     required this.id,
     required this.title,
@@ -29,7 +48,28 @@ class JobModel {
     required this.requiredSkills,
     required this.postedDate,
     this.isBookmarked = false,
+    this.source = JobSource.luckyBoss,
+    this.sourceName,
+    this.closingDate,
+    this.applicationFee,
+    this.applicationFeeCurrency,
   });
+
+  /// A paid application. Free is the default, and stays the default until an
+  /// admin enables candidate monetisation and marks a specific job paid.
+  bool get requiresPayment => applicationFee != null && applicationFee! > 0;
+
+  String get feeDisplay =>
+      requiresPayment ? '${applicationFeeCurrency ?? 'SGD'} ${applicationFee!.toStringAsFixed(0)}' : 'Free';
+
+  /// Days until the posting closes. Negative means it has already closed.
+  int? get daysUntilClosing =>
+      closingDate?.difference(DateTime.now()).inDays;
+
+  bool get isClosingSoon {
+    final d = daysUntilClosing;
+    return d != null && d >= 0 && d <= 3;
+  }
 
   String get salaryDisplay => '$currency $minSalary - $maxSalary / mo';
 

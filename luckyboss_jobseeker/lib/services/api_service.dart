@@ -1,9 +1,12 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/config/api_config.dart';
 import '../models/job_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
+  /// Resolved at build time via ApiConfig so release builds reach the real
+  /// server instead of the handset's own loopback.
+  static String get baseUrl => ApiConfig.v1;
 
   /// Fetch live jobs from the Laravel API backend with graceful fallback
   static Future<List<JobModel>?> fetchLiveJobs({String? country, String? keyword}) async {

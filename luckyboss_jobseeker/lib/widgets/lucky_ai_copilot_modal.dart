@@ -1,271 +1,518 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../core/theme/app_theme.dart';
 import '../services/gemini_copilot_service.dart';
 
+/// One turn in the conversation.
+class _Turn {
+  final bool isUser;
+  final String text;
+
+  /// True when the assistant could not answer. Rendered distinctly so an
+  /// apology is never mistaken for advice.
+  final bool unavailable;
+
+  const _Turn({required this.isUser, required this.text, this.unavailable = false});
+}
+
+/// Lucky AI — the candidate-facing career assistant.
+///
+/// Two things drive this design.
+///
+/// First, the assistant answers questions about salary bands and job
+/// prospects — things a candidate may act on. So a failed request is rendered
+/// as a visibly different kind of message, not as another grey bubble. The
+/// backend already distinguishes a real reply from an outage; throwing that
+/// distinction away in the UI would be the whole problem restored.
+///
+/// Second, model output arrives as light markdown. Rendering `**Skills:**`
+/// literally, asterisks and all, is what made earlier builds look unfinished,
+/// so [_RichReply] resolves bold and bullets into real text spans instead of
+/// stripping the markers and flattening the emphasis.
 class LuckyAiCopilotModal extends StatefulWidget {
-  const LuckyAiCopilotModal({super.key});
+  const LuckyAiCopilotModal({super.key}) : scrollController = null;
 
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const LuckyAiCopilotModal(),
+      // Tall by default: a chat that opens at a third of the screen makes the
+      // user drag before they can read anything.
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.88,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) =>
+            LuckyAiCopilotModal._withController(scrollController),
+      ),
     );
   }
+
+  const LuckyAiCopilotModal._withController(this.scrollController);
+
+  final ScrollController? scrollController;
 
   @override
   State<LuckyAiCopilotModal> createState() => _LuckyAiCopilotModalState();
 }
 
 class _LuckyAiCopilotModalState extends State<LuckyAiCopilotModal> {
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'isUser': false,
-      'text': "Hello! I'm Lucky AI, your intelligent career copilot.\n\nAsk me anything about verified job vacancies, salary rates, or resume tips across India, Singapore & Malaysia!",
-      'time': 'Just now',
-    }
-  ];
-
+  final List<_Turn> _turns = [];
   final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  bool _isLoading = false;
+  final FocusNode _inputFocus = FocusNode();
+  late final ScrollController _scroll =
+      widget.scrollController ?? ScrollController();
 
-  final List<String> _suggestions = [
-    '🔍 Find Tech roles in Bengaluru',
-    '📦 Warehouse openings in Singapore',
-    '⚡ How to boost my Profile Fit score?',
+  bool _busy = false;
+
+  /// Openers, shown only while the conversation is empty. They disappear once
+  /// there is real context — stale chips compete with what the user is actually doing.
+  static const List<(IconData, String)> _starters = [
+    (Icons.trending_up, 'What salary should I expect for my experience?'),
+    (Icons.checklist_rtl, 'How do I make my profile stand out?'),
+    (Icons.work_outline, 'Which roles match my skills?'),
+    (Icons.description_outlined, 'How should I write my professional summary?'),
   ];
 
-  Future<void> _sendMessage(String text) async {
-    final query = text.trim();
-    if (query.isEmpty || _isLoading) return;
+  @override
+  void dispose() {
+    _controller.dispose();
+    _inputFocus.dispose();
+    if (widget.scrollController == null) _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send(String raw) async {
+    final query = raw.trim();
+    if (query.isEmpty || _busy) return;
 
     _controller.clear();
     setState(() {
-      _messages.add({
-        'isUser': true,
-        'text': query,
-        'time': 'Now',
-      });
-      _isLoading = true;
+      _turns.add(_Turn(isUser: true, text: query));
+      _busy = true;
     });
+    _scrollToEnd();
 
-    _scrollToBottom();
+    final result = await GeminiCopilotService.ask(query);
+    if (!mounted) return;
 
-    final reply = await GeminiCopilotService.generateReply(query);
-
-    if (mounted) {
-      setState(() {
-        _messages.add({
-          'isUser': false,
-          'text': reply,
-          'time': 'Now',
-        });
-        _isLoading = false;
-      });
-      _scrollToBottom();
-    }
+    setState(() {
+      _turns.add(_Turn(
+        isUser: false,
+        text: result.reply,
+        unavailable: !result.isLive,
+      ));
+      _busy = false;
+    });
+    _scrollToEnd();
   }
 
-  void _scrollToBottom() {
+  void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 80,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
     return Container(
-      height: MediaQuery.of(context).size.height * 0.82,
-      margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
-          // Clean Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          _header(context),
+          Expanded(
+            child: _turns.isEmpty
+                ? _emptyState()
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                    itemCount: _turns.length + (_busy ? 1 : 0),
+                    itemBuilder: (context, i) => i >= _turns.length
+                        ? const _ThinkingBubble()
+                        : _bubble(_turns[i]),
+                  ),
+          ),
+          _composer(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(18, 12, 10, 14),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: Row(
+            const SizedBox(height: 14),
+            Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.inkOf(context),
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: AppTheme.amber, size: 20),
+                  child: Icon(Icons.auto_awesome, size: 17, color: AppTheme.onInkOf(context)),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Lucky AI Assistant',
-                        style: AppTheme.serifTitle(fontSize: 18, color: Colors.white),
-                      ),
-                      Text(
-                        'Career Intelligence & Guidance',
-                        style: AppTheme.sansMedium(fontSize: 11, color: Colors.white70),
-                      ),
+                      Text('Lucky AI',
+                          style: AppTheme.sansBold(
+                              fontSize: 16, color: AppTheme.inkOf(context))),
+                      Text('Career assistant',
+                          style: AppTheme.sansRegular(
+                              fontSize: 12, color: AppTheme.inkFaintOf(context))),
                     ],
                   ),
                 ),
+                if (_turns.isNotEmpty)
+                  TextButton(
+                    onPressed: _busy ? null : () => setState(_turns.clear),
+                    child: Text('Clear',
+                        style: AppTheme.sansMedium(
+                            fontSize: 13, color: AppTheme.inkMutedOf(context))),
+                  ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, size: 20, color: AppTheme.inkMutedOf(context)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
+          ],
+        ),
+      );
+
+  Widget _emptyState() => ListView(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
+        children: [
+          Text(
+            'How can I help?',
+            style: AppTheme.serifTitle(fontSize: 24, color: AppTheme.inkOf(context)),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'Ask about roles, salary ranges, or how to strengthen your profile across Singapore, Malaysia and India.',
+            style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.inkMutedOf(context)),
+          ),
+          const SizedBox(height: 24),
+          ..._starters.map((s) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _starterChip(s.$1, s.$2),
+              )),
+        ],
+      );
 
-          // Messages
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length + (_isLoading ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length && _isLoading) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.bgPaper,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppTheme.borderLight),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryNavy),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Looking up...',
-                            style: AppTheme.sansMedium(fontSize: 12, color: AppTheme.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
+  Widget _starterChip(IconData icon, String text) => InkWell(
+        onTap: () => _send(text),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: AppTheme.signalSource),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(text,
+                    style: AppTheme.sansMedium(
+                        fontSize: 14, color: AppTheme.inkOf(context))),
+              ),
+              Icon(Icons.north_east, size: 14, color: AppTheme.inkFaintOf(context)),
+            ],
+          ),
+        ),
+      );
 
-                final msg = _messages[index];
-                final isUser = msg['isUser'] as bool;
-
-                return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isUser ? AppTheme.primaryNavy : AppTheme.bgPaper,
-                      borderRadius: BorderRadius.circular(18).copyWith(
-                        topRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
-                        topLeft: !isUser ? const Radius.circular(4) : const Radius.circular(18),
-                      ),
-                      border: isUser ? null : Border.all(color: AppTheme.borderLight),
-                    ),
-                    child: Text(
-                      msg['text'] as String,
-                      style: AppTheme.sansRegular(
-                        fontSize: 13.5,
-                        height: 1.4,
-                        color: isUser ? Colors.white : AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                );
-              },
+  Widget _bubble(_Turn turn) {
+    if (turn.isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14, left: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+          decoration: BoxDecoration(
+            color: AppTheme.inkOf(context),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(4),
             ),
           ),
+          child: Text(turn.text,
+              style: AppTheme.sansMedium(fontSize: 14.5, color: AppTheme.onInkOf(context))),
+        ),
+      );
+    }
 
-          // Inquiry chips
-          SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _suggestions.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final sug = _suggestions[index];
-                return ActionChip(
-                  label: Text(sug, style: AppTheme.sansBold(fontSize: 11, color: AppTheme.primaryNavy)),
-                  backgroundColor: AppTheme.bgPaper,
-                  side: const BorderSide(color: AppTheme.borderMedium),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  onPressed: () => _sendMessage(sug),
-                );
-              },
+    // The unavailable case gets its own treatment — an attention wash and an
+    // icon — because it is not an answer and must not look like one.
+    if (turn.unavailable) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 14, right: 24),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.signalAttentionWash,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.cloud_off_outlined,
+                size: 17, color: AppTheme.signalAttention),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(turn.text,
+                  style: AppTheme.sansMedium(
+                      fontSize: 13.5, color: AppTheme.signalAttention)),
             ),
-          ),
+          ],
+        ),
+      );
+    }
 
-          const SizedBox(height: 8),
-
-          // Input Bar
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: AppTheme.borderLight)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    style: AppTheme.sansMedium(fontSize: 14, color: AppTheme.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Ask about jobs, salaries, interviews...',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      fillColor: AppTheme.bgPaper,
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: AppTheme.primaryNavy)),
-                    ),
-                    onSubmitted: _sendMessage,
-                  ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16, right: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _RichReply(text: turn.text),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: turn.text));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Copied.',
+                      style: AppTheme.sansMedium(fontSize: 13, color: AppTheme.onInkOf(context))),
+                  backgroundColor: AppTheme.primaryFillOf(context),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryNavy,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 20),
-                    onPressed: () => _sendMessage(_controller.text),
-                  ),
-                ),
-              ],
+              );
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.copy_outlined, size: 13, color: AppTheme.inkFaintOf(context)),
+                  const SizedBox(width: 5),
+                  Text('Copy',
+                      style: AppTheme.sansMedium(
+                          fontSize: 12, color: AppTheme.inkFaintOf(context))),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _composer(BuildContext context) => Container(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          10,
+          14,
+          10 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _inputFocus,
+                  enabled: !_busy,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: _send,
+                  style: AppTheme.sansRegular(fontSize: 14.5, color: AppTheme.inkOf(context)),
+                  decoration: InputDecoration(
+                    hintText: 'Ask Lucky AI…',
+                    hintStyle:
+                        AppTheme.sansRegular(fontSize: 14.5, color: AppTheme.inkFaintOf(context)),
+                    filled: true,
+                    fillColor: AppTheme.paperOf(context),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _controller,
+                builder: (context, value, _) {
+                  final ready = value.text.trim().isNotEmpty && !_busy;
+                  return GestureDetector(
+                    onTap: ready ? () => _send(_controller.text) : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: ready ? AppTheme.inkOf(context) : Theme.of(context).dividerColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_upward,
+                        size: 19,
+                        color: ready ? Colors.white : AppTheme.inkFaintOf(context),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// Renders the assistant's light markdown.
+///
+/// Handles `**bold**` and leading bullet markers only. That is deliberately
+/// narrow: the backend's system prompt asks for exactly those, and a fuller
+/// markdown dependency would be weight carried for output that never arrives.
+/// Anything unrecognised falls through as plain text rather than showing raw
+/// syntax to the candidate.
+class _RichReply extends StatelessWidget {
+  final String text;
+
+  const _RichReply({required this.text});
+
+  static final RegExp _bold = RegExp(r'\*\*(.+?)\*\*');
+  static final RegExp _bulletPrefix = RegExp(r'^\s*[•\-\*]\s+');
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.trim().split('\n');
+    final widgets = <Widget>[];
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      final isBullet = _bulletPrefix.hasMatch(trimmed);
+      final content = isBullet ? trimmed.replaceFirst(_bulletPrefix, '') : trimmed;
+
+      widgets.add(Padding(
+        padding: EdgeInsets.only(bottom: 6, left: isBullet ? 2 : 0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isBullet)
+              Padding(
+                padding: const EdgeInsets.only(top: 7, right: 9),
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.inkFaintOf(context),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            Expanded(child: _spans(context, content)),
+          ],
+        ),
+      ));
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
+  Widget _spans(BuildContext context, String source) {
+    final base = AppTheme.sansRegular(fontSize: 14.5, color: AppTheme.inkOf(context))
+        .copyWith(height: 1.45);
+    final strong = AppTheme.sansBold(fontSize: 14.5, color: AppTheme.inkOf(context))
+        .copyWith(height: 1.45);
+
+    final spans = <TextSpan>[];
+    var cursor = 0;
+
+    for (final match in _bold.allMatches(source)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: source.substring(cursor, match.start), style: base));
+      }
+      spans.add(TextSpan(text: match.group(1), style: strong));
+      cursor = match.end;
+    }
+    if (cursor < source.length) {
+      spans.add(TextSpan(text: source.substring(cursor), style: base));
+    }
+
+    return SelectableText.rich(TextSpan(children: spans));
+  }
+}
+
+/// The waiting state, as a bubble in the flow rather than a spinner over it.
+class _ThinkingBubble extends StatelessWidget {
+  const _ThinkingBubble();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.8,
+                valueColor: AlwaysStoppedAnimation(AppTheme.inkFaintOf(context)),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Text('Thinking…',
+                style: AppTheme.sansRegular(fontSize: 13.5, color: AppTheme.inkFaintOf(context))),
+          ],
+        ),
+      );
 }

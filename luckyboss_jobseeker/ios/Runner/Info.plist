@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- iOS refuses the capture outright, with no prompt, if these strings are
+	     absent - App Review rejects the build for the same reason. The text is
+	     shown verbatim in the system dialog, so it says why Lucky Boss is
+	     asking rather than restating what the OS already displays. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Lucky Boss uses your camera so you can take a profile photo for your candidate profile.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Lucky Boss needs access to your photos so you can choose a profile photo for your candidate profile.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Lucky Boss saves photos you capture for your candidate profile.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

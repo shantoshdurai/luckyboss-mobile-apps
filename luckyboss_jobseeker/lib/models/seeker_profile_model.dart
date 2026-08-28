@@ -43,6 +43,45 @@ class SeekerProfileModel {
   String bio;
   List<String> skills;
   String? resumeFileName;
+
+  /// Absolute URL of the uploaded profile photo, or null when the candidate
+  /// has not set one and initials are shown instead.
+  String? photoUrl;
+
+  // Collected by the onboarding wizard. Which of these are meaningful depends
+  // on [isStudent] — a fresher has a qualification and passing year, someone
+  // working has a title and notice period.
+  bool isStudent;
+  String currentCity;
+  String currentTitle;
+  String? qualification;
+  String course;
+  String passingYear;
+  String noticePeriod;
+
+  // Job preferences. These are matching constraints, not decoration — see
+  // JobSeekerProvider.matchScoreFor.
+  String preferredCountry;
+  List<String> workModes;
+  List<String> jobTypes;
+  String expectedSalary;
+  String availability;
+  bool? openToRelocate;
+  bool? hasWorkPermit;
+
+  /// One-line pitch shown at the top of the profile — spec section 31's
+  /// "Professional Summary" in its short form.
+  String headline;
+
+  /// Function or department, e.g. Engineering, Finance. Distinct from
+  /// [preferredCategory], which is the job market; this is what they do inside it.
+  String department;
+
+  /// Projects and languages. Both are lists because a candidate has several and
+  /// employers filter on any one of them.
+  List<String> projects;
+  List<String> languages;
+
   bool isVerified;
 
   SeekerProfileModel({
@@ -55,8 +94,31 @@ class SeekerProfileModel {
     this.bio = '',
     List<String>? skills,
     this.resumeFileName,
+    this.photoUrl,
+    this.isStudent = false,
+    this.currentCity = '',
+    this.currentTitle = '',
+    this.qualification,
+    this.course = '',
+    this.passingYear = '',
+    this.noticePeriod = '',
+    this.preferredCountry = '',
+    List<String>? workModes,
+    List<String>? jobTypes,
+    this.expectedSalary = '',
+    this.availability = '',
+    this.headline = '',
+    this.department = '',
+    List<String>? projects,
+    List<String>? languages,
+    this.openToRelocate,
+    this.hasWorkPermit,
     this.isVerified = false,
-  }) : skills = skills ?? [];
+  })  : skills = skills ?? [],
+        workModes = workModes ?? [],
+        jobTypes = jobTypes ?? [],
+        projects = projects ?? [],
+        languages = languages ?? [];
 
   bool get isProfileFilledOut => name.trim().isNotEmpty && email.trim().isNotEmpty;
 

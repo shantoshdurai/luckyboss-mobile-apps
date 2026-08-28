@@ -1,39 +1,107 @@
-import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../core/config/api_config.dart';
+
+/// LUCKY AI COPILOT
+///
+/// This used to be a keyword `if/else` behind a fake `Future.delayed`, returning
+/// hardcoded salary figures as though a model had produced them. It now calls
+/// the real Laravel endpoint, which is `POST /api/ai-chat` — that route exists
+/// and is wired to `AiChatController`, which runs Gemini when a key is
+/// configured and a pure-PHP heuristic engine when it is not.
+///
+/// The important change is not that it calls an API. It is that when the call
+/// fails, this says so instead of inventing an answer. A career assistant that
+/// fabricates salary bands when the backend is down is worse than one that is
+/// honestly unavailable.
+class CopilotResult {
+  final String reply;
+  final bool isLive;
+
+  /// Why the assistant is unavailable, when it is. Null when `isLive`.
+  final String? unavailableReason;
+
+  const CopilotResult({
+    required this.reply,
+    required this.isLive,
+    this.unavailableReason,
+  });
+}
 
 class GeminiCopilotService {
-  static Future<String> generateReply(String userMessage) async {
-    await Future.delayed(const Duration(milliseconds: 1000));
-    final msg = userMessage.toLowerCase();
+  /// The chat route is registered at the API root, not under /v1 — see
+  /// routes/api.php: Route::post('/ai-chat', AiChatController::class).
+  static String get _chatUrl => ApiConfig.aiChat;
 
-    if (msg.contains('warehouse') || msg.contains('logistics')) {
-      return "Logistics & Supply Chain Vacancies:\n\n"
-          "Warehouse Operations Lead: S\$3,500 - S\$5,000/mo (Singapore, Jurong)\n"
-          "Inventory Controller: RM 4,200 - RM 6,500/mo (Malaysia, Johor)\n"
-          "Supply Chain Specialist: INR 6.5L - 11L/yr (India, Mumbai)\n\n"
-          "Tip: Having a valid WMS or Forklift certification increases your recruiter interview rate significantly.";
+  static Future<CopilotResult> ask(String userMessage) async {
+    final message = userMessage.trim();
+    if (message.isEmpty) {
+      return const CopilotResult(
+        reply: 'Ask me about roles, salary ranges, or how to strengthen your profile.',
+        isLive: true,
+      );
     }
 
-    if (msg.contains('tech') || msg.contains('flutter') || msg.contains('developer') || msg.contains('software')) {
-      return "Top Software & Tech Openings:\n\n"
-          "Lead Mobile & AI Engineer: S\$7,000 - S\$9,500/mo (Singapore, One-North)\n"
-          "Full-Stack Cloud Developer: INR 16L - 28L/yr (India, Bengaluru)\n"
-          "DevOps & Platform Specialist: RM 8,000 - RM 12,500/mo (Malaysia, KL)\n\n"
-          "Your match score is calculated based on your actual skills and experience.";
-    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_chatUrl),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'message': message}),
+          )
+          .timeout(const Duration(seconds: 20));
 
-    return "Hello! I am Lucky AI, your personalized career copilot.\n\n"
-        "I analyze verified corporate postings across Singapore, Malaysia, and India to help you benchmark salaries and prepare for interviews.\n\n"
-        "Try asking: What are top tech jobs in Singapore? or How do I boost my profile match score?";
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final reply = (data['reply'] as String?)?.trim();
+        if (reply != null && reply.isNotEmpty) {
+          return CopilotResult(reply: reply, isLive: true);
+        }
+        return _unavailable('The assistant returned an empty response.');
+      }
+
+      if (response.statusCode == 429) {
+        return _unavailable('The AI service has hit its rate limit. Try again shortly.');
+      }
+      return _unavailable('The assistant is not responding (${response.statusCode}).');
+    } catch (_) {
+      return _unavailable(
+        'Cannot reach the Lucky Boss server. Check your connection and try again.',
+      );
+    }
   }
 
+  /// No fabricated fallback. The seeker is told the assistant is unavailable and
+  /// pointed at something that still works, rather than handed invented figures.
+  static CopilotResult _unavailable(String reason) => CopilotResult(
+        reply:
+            'Lucky AI is unavailable right now, so I would rather not guess.\n\n'
+            'You can still search and filter jobs, and every vacancy shows which of its '
+            'required skills you already meet.',
+        isLive: false,
+        unavailableReason: reason,
+      );
+
+  /// Resume parsing runs server-side against the uploaded file. There is no
+  /// endpoint for it yet — `POST /api/v1/resume/parse` is documented in
+  /// CLAUDE.md but is not registered in routes/api.php — so this reports that
+  /// honestly rather than returning empty data after a staged delay.
   static Future<Map<String, dynamic>> extractResumeData(String resumeFileName) async {
-    await Future.delayed(const Duration(milliseconds: 2200));
-    // In production, this calls an API with OCR + LLM extraction.
-    // For demo, return empty - user fills in manually or API extracts from real file.
     return {
+      'available': false,
+      'reason': 'Resume parsing needs POST /api/v1/resume/parse, which does not exist yet.',
+      'resumeFileName': resumeFileName,
       'bio': '',
       'skills': <String>[],
-      'resumeFileName': resumeFileName,
     };
   }
+
+  /// Kept so existing callers compile. Prefer `ask()`, which reports whether the
+  /// answer actually came from the assistant.
+  @Deprecated('Use ask() — it reports whether the reply is live or a fallback.')
+  static Future<String> generateReply(String userMessage) async =>
+      (await ask(userMessage)).reply;
 }

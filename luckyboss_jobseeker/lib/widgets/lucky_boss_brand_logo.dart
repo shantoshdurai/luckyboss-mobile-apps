@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/theme/app_theme.dart';
 
 class LuckyBossBrandLogo extends StatelessWidget {
   final double height;
@@ -14,12 +15,20 @@ class LuckyBossBrandLogo extends StatelessWidget {
       height: height,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Lucky', style: GoogleFonts.cormorantGaramond(fontSize: fontSize, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),
-            Text('Boss', style: GoogleFonts.cormorantGaramond(fontSize: fontSize, fontWeight: FontWeight.w800, color: const Color(0xFF0B1B3D))),
-          ],
+        // Fallback when the asset is missing. Ledger sets the wordmark in the
+        // system's own type rather than a third face, and the gradient is the
+        // logo's actual ramp — this is one of the two places it is allowed.
+        return ShaderMask(
+          shaderCallback: (bounds) => AppTheme.brandRule.createShader(bounds),
+          child: Text(
+            'LuckyBOSS',
+            style: GoogleFonts.archivo(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: Colors.white,
+            ),
+          ),
         );
       },
     );

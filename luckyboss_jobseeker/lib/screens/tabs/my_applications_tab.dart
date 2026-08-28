@@ -1,185 +1,282 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/application_model.dart';
 import '../../providers/job_seeker_provider.dart';
+import '../../widgets/ledger_components.dart';
+import '../../widgets/pipeline_stats.dart';
 
+/// MY APPLICATIONS — what I sent, and what happened to it.
+///
+/// The thing a job seeker actually wants from this screen is not a list. It is
+/// an answer to "did anything move?" So every row carries its position in the
+/// pipeline as a timeline the seeker can read at a glance, and the sections are
+/// ordered active-first: a live interview matters more than a rejection from
+/// three weeks ago.
+///
+/// Uses the same status vocabulary and the same six stage colours as the
+/// employer app, because they are describing the same pipeline. A candidate
+/// reading "Shortlisted" and a recruiter setting "Shortlisted" should be
+/// looking at the same word in the same ink.
 class MyApplicationsTab extends StatelessWidget {
   const MyApplicationsTab({super.key});
 
+  static const _pipeline = ['Applied', 'Shortlisted', 'Interview', 'Offer'];
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<JobSeekerProvider>(context);
-    final applications = provider.myApplications;
+    final provider = context.watch<JobSeekerProvider>();
+    final all = provider.myApplications;
+
+    final active = all.where((a) => a.stage != ApplicationStage.rejected).toList();
+    final closed = all.where((a) => a.stage == ApplicationStage.rejected).toList();
 
     return Scaffold(
-      backgroundColor: AppTheme.bgPaper,
-      appBar: AppBar(
-        title: Text('Application Pipeline', style: AppTheme.sansBold(fontSize: 18, color: AppTheme.primaryNavy)),
-      ),
-      body: applications.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: AppTheme.paperOf(context),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Title only. The old header stacked an eyebrow, a title, a
+            // summary strip and five stat tiles before a single application —
+            // four bands of furniture above the content the screen is for.
+            Container(
+              color: AppTheme.paperOf(context),
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+              child: Row(
                 children: [
-                  const Icon(Icons.assignment_outlined, size: 54, color: AppTheme.textMuted),
-                  const SizedBox(height: 12),
-                  Text('No active applications yet.', style: AppTheme.serifTitle(fontSize: 18, color: AppTheme.primaryNavy)),
-                  const SizedBox(height: 6),
-                  Text('Apply to cross-border roles to track your hiring status.', style: AppTheme.sansRegular(fontSize: 13, color: AppTheme.textSecondary)),
+                  Expanded(
+                    child: Text('My applications',
+                        style: AppTheme.screenTitle()),
+                  ),
+                  if (all.isNotEmpty)
+                    Text(
+                      '${all.length} total',
+                      style: AppTheme.sansMedium(
+                          fontSize: 13, color: AppTheme.inkFaintOf(context)),
+                    ),
                 ],
               ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
-              itemCount: applications.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final app = applications[index];
-                return Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.borderLight),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  app.jobTitle,
-                                  style: AppTheme.serifTitle(fontSize: 18, color: AppTheme.primaryNavy),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  app.companyName,
-                                  style: AppTheme.sansMedium(fontSize: 13, color: AppTheme.textSecondary),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryNavy,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              app.stageTitle,
-                              style: AppTheme.sansBold(fontSize: 11, color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // 4-Stage Stepper
-                      Row(
-                        children: [
-                          _buildStepNode('Applied', 0, app.stageStepIndex),
-                          _buildStepLine(0, app.stageStepIndex),
-                          _buildStepNode('Shortlist', 1, app.stageStepIndex),
-                          _buildStepLine(1, app.stageStepIndex),
-                          _buildStepNode('Interview', 2, app.stageStepIndex),
-                          _buildStepLine(2, app.stageStepIndex),
-                          _buildStepNode('Offer', 3, app.stageStepIndex),
-                        ],
-                      ),
-
-                      if (app.interviewSchedule != null) ...[
-                        const SizedBox(height: 18),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.emerald.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.event_available, color: AppTheme.emeraldDark, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  app.interviewSchedule!,
-                                  style: AppTheme.sansBold(fontSize: 12, color: AppTheme.emeraldDark),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      if (app.recruiterRemarks != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          app.recruiterRemarks!,
-                          style: AppTheme.sansRegular(fontSize: 12.5, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              },
             ),
+            // Stats only once there is a pipeline to describe. Five zeroes
+            // above an empty-state that already says "no applications yet" is
+            // the same message twice.
+            if (all.isNotEmpty) const PipelineStats(),
+            const BrandRule(),
+            Expanded(
+              child: all.isEmpty
+                  ? const LedgerEmptyState(
+                      headline: 'No applications yet',
+                      explanation:
+                          'Everything you apply to appears here, and you can follow each one '
+                          'from applied through to an offer.',
+                    )
+                  : ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (final a in active) ...[
+                          _ApplicationCard(application: a),
+                          const Divider(height: 1),
+                        ],
+                        if (closed.isNotEmpty) ...[
+                          Container(
+                            color: AppTheme.paperOf(context),
+                            padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
+                            child: MetaText('Closed — ${closed.length}'),
+                          ),
+                          for (final a in closed) ...[
+                            _ApplicationCard(application: a, dimmed: true),
+                            const Divider(height: 1),
+                          ],
+                        ],
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+
+
+class _ApplicationCard extends StatelessWidget {
+  final ApplicationModel application;
+  final bool dimmed;
+
+  const _ApplicationCard({required this.application, this.dimmed = false});
+
+  /// Same status strings the employer app sets, so both sides of the pipeline
+  /// use one vocabulary.
+  String get _status {
+    switch (application.stage) {
+      case ApplicationStage.applied:
+        return 'New';
+      case ApplicationStage.shortlisted:
+        return 'Shortlisted';
+      case ApplicationStage.interview:
+        return 'Interview Scheduled';
+      case ApplicationStage.offer:
+        return 'Offer Sent';
+      case ApplicationStage.rejected:
+        return 'Rejected';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rejected = application.stage == ApplicationStage.rejected;
+    final titleColor = dimmed ? AppTheme.inkMutedOf(context) : AppTheme.ink;
+
+    return Container(
+      color: dimmed ? AppTheme.paperOf(context) : AppTheme.surfaceOf(context),
+      padding: const EdgeInsets.fromLTRB(18, 15, 18, 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(application.jobTitle,
+                        style: AppTheme.sectionTitle(color: titleColor),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    Text('${application.companyName} · ${application.location}',
+                        style: AppTheme.small(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              MatchCell(score: application.matchScore),
+            ],
+          ),
+          const SizedBox(height: 13),
+
+          // The timeline. Rejected applications do not get one — showing a
+          // half-filled progress bar for something that ended is a small cruelty
+          // and tells the seeker nothing useful.
+          if (!rejected) _Timeline(stepIndex: application.stageStepIndex),
+          if (!rejected) const SizedBox(height: 13),
+
+          Row(
+            children: [
+              StagePill(_status),
+              const SizedBox(width: 10),
+              Flexible(
+                child: MetaText('Applied ${_ago(application.appliedDate)}', size: 9),
+              ),
+            ],
+          ),
+
+          if (application.interviewSchedule != null) ...[
+            const SizedBox(height: 10),
+            _Callout(
+              icon: Icons.event_outlined,
+              color: AppTheme.signalProgress,
+              wash: AppTheme.signalProgressWash,
+              text: application.interviewSchedule!,
+            ),
+          ],
+          if (application.recruiterRemarks != null && !rejected) ...[
+            const SizedBox(height: 8),
+            Text(application.recruiterRemarks!, style: AppTheme.small()),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _buildStepNode(String label, int stepIndex, int currentStageIndex) {
-    final isDone = currentStageIndex >= stepIndex;
+  static String _ago(DateTime d) {
+    final days = DateTime.now().difference(d).inDays;
+    if (days <= 0) return 'today';
+    if (days == 1) return 'yesterday';
+    if (days < 30) return '$days days ago';
+    return '${(days / 30).floor()} months ago';
+  }
+}
+
+/// Applied → Shortlisted → Interview → Offer, as four segments.
+///
+/// Segments rather than dots: a seeker reads "how far along am I", and a filled
+/// bar answers that faster than counting circles.
+class _Timeline extends StatelessWidget {
+  final int stepIndex;
+  const _Timeline({required this.stepIndex});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDone ? AppTheme.primaryNavy : Colors.white,
-            border: Border.all(color: isDone ? AppTheme.primaryNavy : AppTheme.borderMedium, width: 2),
-          ),
-          child: Center(
-            child: isDone
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
-                : Text(
-                    '${stepIndex + 1}',
-                    style: AppTheme.sansBold(fontSize: 11, color: AppTheme.textMuted),
+        Row(
+          children: [
+            for (var i = 0; i < MyApplicationsTab._pipeline.length; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: i <= stepIndex ? AppTheme.signalProgress : AppTheme.ruleOf(context),
+                    borderRadius: BorderRadius.circular(1),
                   ),
-          ),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
-        Text(
-          label,
-          style: AppTheme.sansBold(
-            fontSize: 10.5,
-            color: isDone ? AppTheme.primaryNavy : AppTheme.textMuted,
-          ),
+        Row(
+          children: [
+            for (var i = 0; i < MyApplicationsTab._pipeline.length; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: MetaText(
+                  MyApplicationsTab._pipeline[i],
+                  size: 8,
+                  color: i <= stepIndex ? AppTheme.signalProgress : AppTheme.inkFaintOf(context),
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
   }
+}
 
-  Widget _buildStepLine(int leftIndex, int currentStageIndex) {
-    final isDone = currentStageIndex > leftIndex;
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
-        height: 2,
-        color: isDone ? AppTheme.primaryNavy : AppTheme.borderLight,
-      ),
-    );
-  }
+class _Callout extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Color wash;
+  final String text;
+
+  const _Callout({
+    required this.icon,
+    required this.color,
+    required this.wash,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration:
+            BoxDecoration(color: wash, borderRadius: BorderRadius.circular(AppTheme.radiusRow)),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text, style: AppTheme.small(color: color))),
+          ],
+        ),
+      );
 }

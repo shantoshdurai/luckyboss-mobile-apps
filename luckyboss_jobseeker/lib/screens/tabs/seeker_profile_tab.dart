@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../widgets/profile_photo_avatar.dart';
+import '../../widgets/profile_boost_cards.dart';
+import '../../widgets/profile_field_editor.dart';
+import '../../services/resume_service.dart';
 import '../../core/constants/app_data.dart';
 import '../../providers/job_seeker_provider.dart';
-import '../../services/firebase_auth_service.dart';
-import '../auth/phone_auth_screen.dart';
+import '../../services/auth_service.dart';
+import '../auth/sign_in_screen.dart';
 
 class SeekerProfileTab extends StatefulWidget {
   const SeekerProfileTab({super.key});
@@ -17,12 +21,6 @@ class SeekerProfileTab extends StatefulWidget {
 class _SeekerProfileTabState extends State<SeekerProfileTab> {
   bool _pushNotifications = true;
 
-  String _getInitials(String name) {
-    if (name.trim().isEmpty) return 'LB';
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return parts[0][0].toUpperCase();
-  }
 
   // --- Skills Picker with Search and Custom Tag Creation ---
   void _showAddSkillDialog(BuildContext context, JobSeekerProvider provider) {
@@ -60,7 +58,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   const SizedBox(height: 16),
                   Text(
                     'Select & Search Skills',
-                    style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                    style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
                   ),
                   const SizedBox(height: 12),
 
@@ -125,7 +123,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                             return FilterChip(
                               label: Text(skill),
                               selected: isAdded,
-                              selectedColor: AppTheme.primaryNavy,
+                              selectedColor: AppTheme.inkOf(context),
                               labelStyle: AppTheme.sansSemiBold(
                                 fontSize: 12,
                                 color: isAdded ? Colors.white : AppTheme.textPrimary,
@@ -152,7 +150,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryNavy,
+                        backgroundColor: AppTheme.primaryFillOf(context),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: const Text('Done'),
@@ -196,7 +194,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Edit Executive Bio', style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                Text('Edit Executive Bio', style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
                 const SizedBox(height: 6),
                 Text('Summarize your professional experience and key achievements.', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted)),
                 const SizedBox(height: 14),
@@ -221,10 +219,10 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                       Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryNavy,
+                      backgroundColor: AppTheme.primaryFillOf(context),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
-                    child: Text('Save Bio', style: AppTheme.sansBold(fontSize: 14, color: Colors.white)),
+                    child: Text('Save Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.onInkOf(context))),
                   ),
                 ),
               ],
@@ -258,7 +256,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Update Resume', style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+              Text('Update Resume', style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {
@@ -272,7 +270,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 },
                 icon: const Icon(Icons.upload_file_rounded),
                 label: const Text('Select PDF Document'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryFillOf(context)),
               ),
               const SizedBox(height: 10),
               if (provider.profile.resumeFileName != null)
@@ -314,7 +312,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Privacy & Data Protection', style: GoogleFonts.cormorantGaramond(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+              Text('Privacy & Data Protection', style: GoogleFonts.archivo(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
               const SizedBox(height: 8),
               Text('Last updated: August 2026', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted)),
               const Divider(height: 24),
@@ -347,12 +345,58 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.primaryNavy)),
+          Text(title, style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.inkOf(context))),
           const SizedBox(height: 4),
           Text(body, style: AppTheme.sansRegular(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
         ],
       ),
     );
+  }
+
+  /// Resume upload + AI parse. Gated server-side on the admin flags; when the
+  /// parser is off the candidate is told to fill the fields in themselves.
+  Future<void> _uploadResume() async {
+    final provider = context.read<JobSeekerProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final result = await ResumeService.pickAndParse();
+    if (!mounted) return;
+
+    if (result.ok) {
+      final r = result.data!;
+      provider.updateResume(r.fileName);
+      if (r.skills.isNotEmpty) provider.setSkills(r.skills);
+      if (r.summary.isNotEmpty) provider.updateBio(r.summary);
+      await provider.syncProfile();
+      messenger.showSnackBar(SnackBar(
+        content: Text('Filled from ${r.fileName}. Check the details below.',
+            style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
+        backgroundColor: AppTheme.signalPositive,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (result.failure == ResumeFailure.cancelled) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(result.message ?? 'Could not read that resume.',
+          style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
+      backgroundColor: result.failure == ResumeFailure.disabled
+          ? AppTheme.signalAttention
+          : AppTheme.signalClosed,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  /// Routes the photo card to the avatar's own camera/gallery sheet, so there
+  /// is one capture flow rather than two that can drift apart.
+  void _promptPhoto() {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Tap your photo above to take or choose one.',
+          style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
+      backgroundColor: AppTheme.primaryNavy,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
@@ -370,11 +414,14 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Candidate Profile', style: AppTheme.sansBold(fontSize: 18, color: AppTheme.primaryNavy)),
+        title: Text('Candidate Profile', style: AppTheme.sansBold(fontSize: 18, color: AppTheme.inkOf(context))),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 80),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+            child: Column(children: [
           // 1. Candidate Hero Card
           Container(
             padding: const EdgeInsets.all(20),
@@ -394,20 +441,8 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryNavy,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getInitials(candidateName),
-                          style: GoogleFonts.cormorantGaramond(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                      ),
-                    ),
+                    // Tap to take a photo or choose one from the device.
+                    const ProfilePhotoAvatar(size: 58),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -418,7 +453,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                               Flexible(
                                 child: Text(
                                   candidateName,
-                                  style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                                  style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -472,7 +507,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('Profile Strength', style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.primaryNavy)),
+                                    Text('Profile Strength', style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.inkOf(context))),
                                     Text(
                                       strengthPercent == 100 ? '100% Complete & Verified' : '$strengthPercent% Complete',
                                       style: AppTheme.sansBold(fontSize: 11.5, color: strengthColor),
@@ -502,6 +537,18 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           ),
           const SizedBox(height: 16),
 
+          // Sits under the profile card, not above it: the card is who you
+          // are, these are what is missing from it. Reading the gaps before
+          // the identity they belong to was backwards.
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: ProfileBoostCards(
+              onAddSkills: () =>
+                  ProfileFieldEditor.open(context, ProfileField.skills),
+              onUploadResume: _uploadResume,
+              onUploadPhoto: _promptPhoto,
+            ),
+          ),
           // 2. Resume Card
           Container(
             padding: const EdgeInsets.all(18),
@@ -516,7 +563,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Resume Document', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    Text('Resume Document', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
                     if (hasResume)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -540,7 +587,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                     children: [
                       Icon(
                         hasResume ? Icons.picture_as_pdf_rounded : Icons.note_add_outlined,
-                        color: hasResume ? const Color(0xFFDC2626) : AppTheme.textMuted,
+                        color: hasResume ? AppTheme.signalClosed : AppTheme.textMuted,
                         size: 28,
                       ),
                       const SizedBox(width: 10),
@@ -550,7 +597,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                           children: [
                             Text(
                               hasResume ? profile.resumeFileName! : 'No resume uploaded (Manual Profile)',
-                              style: AppTheme.sansBold(fontSize: 12.5, color: AppTheme.primaryNavy),
+                              style: AppTheme.sansBold(fontSize: 12.5, color: AppTheme.inkOf(context)),
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
@@ -586,7 +633,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Skills & Competencies (${profile.skills.length})', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    Text('Skills & Competencies (${profile.skills.length})', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
                     InkWell(
                       onTap: () => _showAddSkillDialog(context, provider),
                       child: Row(
@@ -616,7 +663,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(skill, style: AppTheme.sansBold(fontSize: 12, color: AppTheme.primaryNavy)),
+                                Text(skill, style: AppTheme.sansBold(fontSize: 12, color: AppTheme.inkOf(context))),
                                 const SizedBox(width: 4),
                                 InkWell(
                                   onTap: () => provider.removeSkill(skill),
@@ -646,7 +693,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Executive Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                    Text('Executive Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
                     InkWell(
                       onTap: () => _showEditBioDialog(context, provider),
                       child: Row(
@@ -670,17 +717,23 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
           const SizedBox(height: 16),
 
           // 5. Settings & App Preferences (Dark Mode, Notifications, Privacy)
-          Container(
+          // Material, not a plain Container: ListTile paints its background and
+          // ink splashes onto the nearest Material ancestor, so a decorated box
+          // in between hides the tap feedback entirely. Flutter asserts on this
+          // in debug.
+          Material(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('App Preferences & Settings', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.primaryNavy)),
+                Text('App Preferences & Settings', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
                 const SizedBox(height: 8),
 
 
@@ -699,12 +752,13 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 // Privacy Policy
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.privacy_tip_outlined, color: AppTheme.primaryNavy, size: 20),
+                  leading: Icon(Icons.privacy_tip_outlined, color: AppTheme.inkOf(context), size: 20),
                   title: Text('Privacy Policy & Compliance', style: AppTheme.sansMedium(fontSize: 13.5, color: AppTheme.textPrimary)),
                   trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
                   onTap: () => _showPrivacyPolicy(context),
                 ),
               ],
+            ),
             ),
           ),
           const SizedBox(height: 20),
@@ -717,21 +771,23 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
               label: Text('Sign Out', style: AppTheme.sansBold(fontSize: 14, color: Colors.redAccent)),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
+                side: const BorderSide(color: AppTheme.signalClosedWash),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               onPressed: () async {
-                await FirebaseAuthService.logout();
+                await AuthService.logout();
                 provider.setAuthenticated(false);
                 if (context.mounted) {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => const PhoneAuthScreen()),
+                    MaterialPageRoute(builder: (_) => const SignInScreen()),
                     (route) => false,
                   );
                 }
               },
             ),
+          ),
+            ]),
           ),
         ],
       ),

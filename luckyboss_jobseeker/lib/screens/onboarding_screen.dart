@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../core/theme/app_theme.dart';
-import 'auth/phone_auth_screen.dart';
+import 'auth/sign_in_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -42,7 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const PhoneAuthScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => const SignInScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 350),
       ),
@@ -58,14 +58,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           // Full-bleed dark gradient background
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF040E22), // deep midnight
-                  AppTheme.primaryNavy,
-                  Color(0xFF0D224E), // mid navy
+                  AppTheme.paperDark, // deep midnight
+                  AppTheme.inkOf(context),
+                  AppTheme.surfaceDark, // mid navy
                 ],
                 stops: [0.0, 0.5, 1.0],
               ),
@@ -132,9 +132,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AppTheme.onInkOf(context).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          border: Border.all(color: AppTheme.onInkOf(context).withValues(alpha: 0.15)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -150,7 +150,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             const SizedBox(width: 7),
                             Text(
                               'Lucky Boss Career Hub',
-                              style: AppTheme.sansBold(fontSize: 11.5, color: Colors.white),
+                              style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.onInkOf(context)),
                             ),
                           ],
                         ),
@@ -195,7 +195,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               textAlign: TextAlign.center,
                               style: AppTheme.serifTitle(
                                 fontSize: 32,
-                                color: Colors.white,
+                                color: AppTheme.onInkOf(context),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -270,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _slides[_currentPage].accentColor,
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppTheme.onPrimaryFillOf(context),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             elevation: 4,
                             shadowColor: _slides[_currentPage].accentColor.withValues(alpha: 0.4),
@@ -280,7 +280,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             children: [
                               Text(
                                 _currentPage == _slides.length - 1 ? 'Get Started →' : 'Continue',
-                                style: AppTheme.sansBold(fontSize: 16, color: Colors.white),
+                                style: AppTheme.sansBold(fontSize: 16, color: AppTheme.onInkOf(context)),
                               ),
                             ],
                           ),
@@ -357,11 +357,11 @@ Widget _buildGlobeIllustration(Color accent, Color secondary) {
               BoxShadow(
                 color: accent.withValues(alpha: 0.3),
                 blurRadius: 20,
-                offset: const Offset(0, 4),
+                offset: Offset(0, 4),
               ),
             ],
           ),
-          child: const Icon(Icons.language_rounded, color: Colors.white, size: 38),
+          child: Icon(Icons.language_rounded, color: Colors.white, size: 38),
         ).animate(onPlay: (c) => c.repeat(reverse: true))
             .scaleXY(begin: 0.98, end: 1.04, duration: 2500.ms),
 
@@ -396,7 +396,7 @@ Widget _countryBadge(String flag, String name, String currency, Color color) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
-      color: const Color(0xFF0C1D42).withValues(alpha: 0.9),
+      color: AppTheme.surfaceDark.withValues(alpha: 0.9),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: color.withValues(alpha: 0.4), width: 1.2),
       boxShadow: [
@@ -410,8 +410,8 @@ Widget _countryBadge(String flag, String name, String currency, Color color) {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(flag, style: const TextStyle(fontSize: 16)),
-        const SizedBox(width: 6),
+        Text(flag, style: TextStyle(fontSize: 16)),
+        SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -431,7 +431,7 @@ Widget _buildAiMatchIllustration(Color accent, Color secondary) {
     width: 320,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFF0B1F47).withValues(alpha: 0.85),
+      color: AppTheme.surfaceDark.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(22),
       border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.5),
       boxShadow: [
@@ -504,7 +504,7 @@ Widget _buildAiMatchIllustration(Color accent, Color secondary) {
 
 Widget _jobScoreRow(String title, String score, Color badgeColor) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(12),
@@ -543,7 +543,7 @@ Widget _buildPipelineIllustration(Color accent, Color secondary) {
     width: 320,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFF0B1F47).withValues(alpha: 0.85),
+      color: AppTheme.surfaceDark.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(22),
       border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.5),
       boxShadow: [
@@ -603,8 +603,8 @@ Widget _buildPipelineIllustration(Color accent, Color secondary) {
           ),
           child: Row(
             children: [
-              const Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.emerald),
-              const SizedBox(width: 8),
+              Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.emerald),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Interview Confirmed • 28 Aug, 2:30 PM',
