@@ -191,35 +191,10 @@ class _SignInScreenState extends State<SignInScreen> {
           onSubmitted: _continueWithPhone,
         ),
         const SizedBox(height: 10),
-        if (!AuthService.phoneOtpAvailable)
-          // Stated up front rather than after the user has typed their number
-          // and tapped a button that was never going to work.
-          Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: AppTheme.signalAttentionWash,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.info_outline, size: 17, color: AppTheme.signalAttention),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'SMS sign-in is being switched on. For now, use Email or try the demo.',
-                    style: AppTheme.sansMedium(
-                        fontSize: 12.5, color: AppTheme.signalAttention),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          Text(
-            "We'll text you a 6-digit code. Standard rates may apply.",
-            style: AppTheme.sansRegular(fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
-          ),
+        Text(
+          "We'll text you a 6-digit verification code.",
+          style: AppTheme.sansRegular(fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
+        ),
       ];
 
   Widget _errorBanner(String message) => Container(

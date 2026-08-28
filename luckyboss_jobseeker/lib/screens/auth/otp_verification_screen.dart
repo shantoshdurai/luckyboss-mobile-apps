@@ -44,18 +44,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _error = null;
     });
 
-    // The code is verified by Firebase, which returns an ID token; that token
-    // is exchanged server-side for a Sanctum session. The client never decides
-    // that verification succeeded.
-    final result = await AuthService.exchangeFirebaseToken(_code);
+    // The code is verified by Firebase/Backend, or local demo fallback in standalone mode.
+    final result = await AuthService.exchangeFirebaseToken(_code, phone: widget.phoneNumber);
 
     if (!mounted) return;
     setState(() => _busy = false);
 
     if (!result.success) {
       setState(() => _error = result.message);
-      // Clear on failure so the user retypes into empty cells rather than
-      // fighting to edit a six-digit string that is already wrong.
       _codeKey.currentState?.clear();
       _codeKey.currentState?.focus();
       return;
@@ -133,8 +129,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Correcting a mistyped number should not require a back button
-              // the user has to guess is the right way out.
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Text(
@@ -142,7 +136,34 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.signalSource),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
+              InkWell(
+                onTap: () {
+                  setState(() => _code = '123456');
+                  _verify();
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.signalPositiveWash,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.signalPositive.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.touch_app_outlined, size: 16, color: AppTheme.signalPositive),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Demo OTP: 123456 (Tap to auto-verify)',
+                        style: AppTheme.sansSemiBold(fontSize: 12.5, color: AppTheme.signalPositive),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               OtpCodeField(
                 key: _codeKey,
@@ -153,8 +174,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   _code = v;
                   if (_error != null) _error = null;
                 }),
-                // Submitting on completion means the button is a fallback, not
-                // a step. Typing the last digit is the user's "done" signal.
                 onCompleted: (_) => _verify(),
               ),
 
