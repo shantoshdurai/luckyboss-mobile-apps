@@ -152,13 +152,24 @@ class AuthService {
       const {},
       onInvalid: 'The demo account is not available on this server.',
     );
-    if (!result.success || result.session == null) return result;
-    final s = result.session!;
-    return AuthResult.ok(AuthSession(
-      token: s.token,
-      name: s.name,
-      email: s.email,
-      phone: s.phone,
+    if (result.success && result.session != null) {
+      final s = result.session!;
+      return AuthResult.ok(AuthSession(
+        token: s.token,
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+        isDemo: true,
+      ));
+    }
+
+    // Offline Demo Fallback: Allows testing the full UI, jobs feed, and profile
+    // seamlessly on any handset without requiring a local Laravel server.
+    return const AuthResult.ok(AuthSession(
+      token: 'demo-offline-token',
+      name: 'Santosh Durai',
+      email: 'candidate@luckyboss.test',
+      phone: '+919876543210',
       isDemo: true,
     ));
   }
