@@ -33,9 +33,23 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Pull the stored profile before deciding where to send them. Without this
-    // a returning candidate with a complete server-side profile was routed back
-    // into the wizard and asked for everything again.
+    // Read the device copy before deciding where to send them. This is the
+    // only source on a standalone install, and it has to happen before the
+    // routing below — a returning candidate whose profile has not been loaded
+    // yet looks exactly like a brand new one and gets sent back through the
+    // whole wizard.
+    await provider.hydrateFromDevice();
+    if (!mounted) return;
+
+    // The job catalogue, before the feed is ever built. Loading it lazily from
+    // the feed screen means a candidate reaches the home tab and watches an
+    // empty list fill in, which reads as "no jobs" for as long as it lasts.
+    await provider.loadJobs();
+    if (!mounted) return;
+
+    // Then let the server fill in anything it knows that the device does not.
+    // Never the other way round: what the candidate last typed on this handset
+    // is newer than whatever was last pushed.
     if (session != null) {
       await provider.hydrateProfile();
       if (!mounted) return;

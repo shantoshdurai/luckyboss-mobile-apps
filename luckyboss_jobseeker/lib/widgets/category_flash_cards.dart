@@ -15,20 +15,21 @@ class CategoryFlashCards extends StatelessWidget {
 
   const CategoryFlashCards({super.key, required this.onPick});
 
-  /// Icon and tint per category. Colour here is carrying meaning — it is how
-  /// the eye tells warehouse work from nursing at a glance while scrolling.
-  static const Map<String, (IconData, Color)> _style = {
-    'IT & Software': (Icons.code, AppTheme.signalSource),
-    'Logistics & Warehouse': (Icons.local_shipping_outlined, AppTheme.signalAttention),
-    'Engineering & Tech': (Icons.precision_manufacturing_outlined, AppTheme.signalProgress),
-    'Healthcare & Nursing': (Icons.medical_services_outlined, AppTheme.signalClosed),
-    'Finance & Banking': (Icons.account_balance_outlined, AppTheme.signalPositive),
-  };
+  /// The strip's colours. Icons come from the category itself now — a
+  /// hand-written map here meant every category added to [AppData] silently
+  /// rendered as a generic briefcase until somebody remembered to edit this
+  /// file too.
+  static const List<Color> _tints = [
+    AppTheme.signalSource,
+    AppTheme.signalAttention,
+    AppTheme.signalProgress,
+    AppTheme.signalPositive,
+    AppTheme.signalClosed,
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final categories =
-        AppData.categories.where((c) => c != 'All Roles').toList();
+    final categories = AppData.workCategories;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,11 +52,11 @@ class CategoryFlashCards extends StatelessWidget {
             itemCount: categories.length,
             itemBuilder: (context, i) {
               final category = categories[i];
-              final (icon, tint) =
-                  _style[category] ?? (Icons.work_outline, AppTheme.signalSource);
+              final icon = category.icon;
+              final tint = _tints[i % _tints.length];
 
               return InkWell(
-                onTap: () => onPick(category),
+                onTap: () => onPick(category.name),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   width: 132,
@@ -72,7 +73,7 @@ class CategoryFlashCards extends StatelessWidget {
                       Icon(icon, size: 21, color: tint),
                       const Spacer(),
                       Text(
-                        category,
+                        category.name,
                         style: AppTheme.sansBold(fontSize: 12.5, color: tint),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

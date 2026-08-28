@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/job_model.dart';
 import '../models/purchase_record.dart';
 import '../models/application_model.dart';
 import '../models/feed_prompt.dart';
+import '../models/uploaded_document.dart';
 import '../models/seeker_profile_model.dart';
 import '../services/auth_service.dart';
+import '../services/document_service.dart';
+import '../services/local_store.dart';
 import '../services/profile_sync_service.dart';
 import '../services/gemini_copilot_service.dart';
-import '../services/api_service.dart';
+import '../services/job_catalog_service.dart';
 
 class JobSeekerProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -23,147 +28,198 @@ class JobSeekerProvider extends ChangeNotifier {
   String _selectedCategory = 'All Roles';
   String _searchQuery = '';
 
-  final SeekerProfileModel _profile = SeekerProfileModel(
-    name: '',
-    email: '',
-    phone: '',
-    experienceLevel: ExperienceLevel.mid,
-    preferredCategory: 'IT & Software',
-    bio: '',
-    skills: [],
-    resumeFileName: null,
-    isVerified: false,
-  );
+  SeekerProfileModel _profile = SeekerProfileModel();
 
-  /// Synchronize live job listings from the Laravel Backend
-  Future<void> syncWithBackend() async {
-    final liveJobs = await ApiService.fetchLiveJobs(country: _selectedCountry);
-    if (liveJobs != null && liveJobs.isNotEmpty) {
-      for (final liveJob in liveJobs) {
-        final idx = _allJobs.indexWhere((j) => j.id == liveJob.id);
-        if (idx == -1) {
-          _allJobs.insert(0, liveJob);
-        }
+  // ---------------------------------------------------------------------------
+  // ON-DEVICE PERSISTENCE
+  //
+  // Everything below used to live in memory and nowhere else, so closing the app
+  // erased the candidate's profile, their skills, their saved jobs and their
+  // applications. On a build with no server behind it that is not a sync gap,
+  // it is data loss.
+  //
+  // Rather than adding a save call beside all thirty-odd mutations — where the
+  // next one added would inevitably be forgotten — the write hangs off
+  // [notifyListeners], which every mutation already calls. It is debounced
+  // because a text field can notify on each keystroke and there is no reason to
+  // touch storage that often.
+  // ---------------------------------------------------------------------------
+
+  Timer? _saveTimer;
+  bool _hydrated = false;
+
+  // ---------------------------------------------------------------------------
+  // UPLOADED DOCUMENTS
+  //
+  // Licence cards, the resume, permits. Held as an index here; the file bytes
+  // live under their own key in [LocalStore] and are read only when something
+  // renders them.
+  // ---------------------------------------------------------------------------
+
+  final List<UploadedDocument> _documents = [];
+
+  List<UploadedDocument> get documents => List.unmodifiable(_documents);
+
+  List<UploadedDocument> documentsOfKind(DocumentKind kind) =>
+      _documents.where((d) => d.kind == kind).toList();
+
+  /// The uploaded card backing a claimed licence, if one exists.
+  ///
+  /// This is what separates a tick from proof. A candidate who ticked
+  /// "Forklift Licence" has told us something; one who also uploaded the card
+  /// has shown us. The profile shows the two differently, because presenting
+  /// them the same way is how an employer ends up on site with somebody who
+  /// cannot legally operate the machine.
+  UploadedDocument? documentForCertificate(String certificate) {
+    for (final d in _documents) {
+      if (d.kind == DocumentKind.certificate &&
+          d.label.trim().toLowerCase() == certificate.trim().toLowerCase()) {
+        return d;
       }
-      notifyListeners();
     }
+    return null;
   }
 
-  // --- Real Job Database with specific required skills ---
-  final List<JobModel> _allJobs = [
-    JobModel(
-      id: 'job-101',
-      title: 'Lead AI & Mobile Flutter Engineer',
-      companyName: 'Lucky Boss Global Tech',
-      countryCode: 'IN',
-      location: 'Bengaluru, India',
-      workMode: 'Hybrid',
-      minSalary: '1,20,000',
-      maxSalary: '1,80,000',
-      currency: 'INR',
-      category: 'IT & Software',
-      description: 'Lead next-generation mobile development with Flutter, Firebase OTP, and intelligent recruitment workflows.',
-      requiredSkills: ['Flutter', 'Dart', 'Firebase', 'Python', 'REST APIs'],
-      postedDate: DateTime.now().subtract(const Duration(hours: 3)),
-    ),
-    JobModel(
-      id: 'job-102',
-      title: 'Senior Warehouse Operations Lead',
-      companyName: 'Tuas Port Logistics Group',
-      countryCode: 'SG',
-      location: 'Jurong East, Singapore',
-      workMode: 'On-site',
-      minSalary: '3,800',
-      maxSalary: '5,200',
-      currency: 'SGD',
-      category: 'Logistics & Warehouse',
-      description: 'Oversee automated sorting systems, multi-tier inventory fulfillment, and workforce safety compliance.',
-      requiredSkills: ['Warehouse Operations', 'Supply Chain', 'Forklift Operator', 'Site Safety'],
-      postedDate: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    JobModel(
-      id: 'job-103',
-      title: 'Cloud DevOps & Platform Engineer',
-      companyName: 'Infosys Global Tech',
-      countryCode: 'IN',
-      location: 'Hyderabad, India',
-      workMode: 'Remote',
-      minSalary: '85,000',
-      maxSalary: '1,40,000',
-      currency: 'INR',
-      category: 'IT & Software',
-      description: 'Design CI/CD automation pipelines, Kubernetes clusters, and multi-region cloud deployment architectures.',
-      requiredSkills: ['Docker', 'Kubernetes', 'AWS', 'Python', 'CI/CD'],
-      postedDate: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    JobModel(
-      id: 'job-104',
-      title: 'Regional Supply Chain Manager',
-      companyName: 'Petronas Supply Solutions',
-      countryCode: 'MY',
-      location: 'Kuala Lumpur, Malaysia',
-      workMode: 'Hybrid',
-      minSalary: '6,500',
-      maxSalary: '9,000',
-      currency: 'MYR',
-      category: 'Logistics & Warehouse',
-      description: 'Manage cross-border logistics lanes between Singapore, Malaysia, and regional distribution centers.',
-      requiredSkills: ['Supply Chain', 'Warehouse Operations', 'Site Safety'],
-      postedDate: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-    JobModel(
-      id: 'job-105',
-      title: 'Senior Financial Analyst',
-      companyName: 'DBS Treasury Solutions',
-      countryCode: 'SG',
-      location: 'Marina Bay, Singapore',
-      workMode: 'Hybrid',
-      minSalary: '5,500',
-      maxSalary: '7,800',
-      currency: 'SGD',
-      category: 'Finance',
-      description: 'Conduct corporate valuation models, financial variance reporting, and cross-border tax compliance.',
-      requiredSkills: ['Financial Analysis', 'GST Compliance', 'Data Analysis'],
-      postedDate: DateTime.now().subtract(const Duration(days: 4)),
-    ),
-    // Third-party listings. Every one of these carries its provider name, and
-    // the whole section is hidden when the admin switch is off.
-    JobModel(
-      id: 'job-ext-01',
-      title: 'Backend Engineer (Payments)',
-      companyName: 'Northwind Systems',
-      countryCode: 'SG',
-      location: 'Singapore',
-      workMode: 'Hybrid',
-      minSalary: '6,000',
-      maxSalary: '8,500',
-      currency: 'SGD',
-      category: 'IT & Software',
-      description: 'Listed through an authorised partner feed. Apply on the partner site.',
-      requiredSkills: ['Java', 'Kafka', 'PostgreSQL'],
-      postedDate: DateTime.now().subtract(const Duration(days: 2)),
-      source: JobSource.external,
-      sourceName: 'TalentBridge Feed',
-      closingDate: DateTime.now().add(const Duration(days: 2)),
-    ),
-    JobModel(
-      id: 'job-ext-02',
-      title: 'Warehouse Team Lead',
-      companyName: 'Meridian Logistics',
-      countryCode: 'MY',
-      location: 'Johor Bahru, Malaysia',
-      workMode: 'On-site',
-      minSalary: '4,500',
-      maxSalary: '6,000',
-      currency: 'MYR',
-      category: 'Logistics & Warehouse',
-      description: 'Listed through an authorised recruitment partner.',
-      requiredSkills: ['Warehouse Operations', 'Inventory', 'Site Safety'],
-      postedDate: DateTime.now().subtract(const Duration(days: 5)),
-      source: JobSource.external,
-      sourceName: 'Approved Recruitment Partner',
-    ),
-  ];
+  bool hasProofFor(String certificate) =>
+      documentForCertificate(certificate) != null;
+
+  /// Records an uploaded document. When it proves a licence the candidate had
+  /// not yet claimed, the claim is added too — uploading the card is a clearer
+  /// statement than ticking the box, and making them do both would be silly.
+  Future<void> addDocument(UploadedDocument document) async {
+    _documents.removeWhere((d) => d.id == document.id);
+    _documents.add(document);
+
+    if (document.kind == DocumentKind.certificate &&
+        document.label.isNotEmpty &&
+        !_profile.certificates.contains(document.label)) {
+      _profile.certificates = [..._profile.certificates, document.label];
+    }
+    if (document.kind == DocumentKind.resume) {
+      _profile.resumeFileName = document.fileName;
+    }
+
+    await LocalStore.saveDocuments(_documents);
+    notifyListeners();
+  }
+
+  Future<void> removeDocument(String id) async {
+    final gone = _documents.where((d) => d.id == id).toList();
+    _documents.removeWhere((d) => d.id == id);
+    await DocumentService.delete(id);
+    for (final d in gone) {
+      if (d.kind == DocumentKind.resume &&
+          _profile.resumeFileName == d.fileName) {
+        _profile.resumeFileName = null;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Drops a claimed licence and any file uploaded to prove it.
+  Future<void> removeCertificate(String certificate) async {
+    _profile.certificates =
+        _profile.certificates.where((c) => c != certificate).toList();
+    final proof = documentForCertificate(certificate);
+    if (proof != null) await removeDocument(proof.id);
+    notifyListeners();
+  }
+
+  /// Reads the candidate's data back from the device. Call once at startup,
+  /// before the first frame that shows profile data.
+  Future<void> hydrateFromDevice() async {
+    if (_hydrated) return;
+    _hydrated = true;
+
+    final stored = await LocalStore.loadProfile();
+    if (stored != null) _profile = stored;
+
+    _savedJobIds
+      ..clear()
+      ..addAll(await LocalStore.loadSavedJobs());
+
+    _myApplications
+      ..clear()
+      ..addAll(await LocalStore.loadApplications());
+
+    _documents
+      ..clear()
+      ..addAll(await LocalStore.loadDocuments());
+
+    _answeredPrompts.addAll(await LocalStore.loadAnsweredPrompts());
+    _dismissedPrompts.addAll(await LocalStore.loadDismissedPrompts());
+
+    notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
+    // Nothing is worth writing before the stored copy has been read — saving
+    // first would overwrite the candidate's real profile with the empty one the
+    // provider starts life holding.
+    if (!_hydrated) return;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 400), _saveNow);
+  }
+
+  Future<void> _saveNow() async {
+    await LocalStore.saveProfile(_profile);
+    await LocalStore.saveDocuments(_documents);
+    await LocalStore.saveSavedJobs(_savedJobIds);
+    await LocalStore.saveApplications(_myApplications);
+    await LocalStore.savePromptState(
+      answered: _answeredPrompts,
+      dismissed: _dismissedPrompts,
+    );
+  }
+
+  /// Flushes any pending debounced write immediately. Used on sign-out and
+  /// anywhere the app might not get another frame.
+  Future<void> flush() async {
+    _saveTimer?.cancel();
+    if (_hydrated) await _saveNow();
+  }
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Re-reads the catalogue, picking up anything the server has published
+  /// since launch. [JobCatalogService] owns the server call now, so this is a
+  /// thin alias kept for the callers that already refresh on resume.
+  Future<void> syncWithBackend() => loadJobs(force: true);
+  // ---------------------------------------------------------------------------
+  // VACANCIES
+  //
+  // Loaded from `assets/data/seed_jobs.json` through [JobCatalogService], not
+  // written out here. Six hundred lines of hand-typed Dart vacancies is not a
+  // job board — it is a fixture that nobody will maintain, that cannot be moved
+  // into MySQL, and that covered four categories out of fourteen. The catalogue
+  // covers every category in all three markets, and every row in it is shaped
+  // like a `jobs` table row so the same data loads server-side unchanged.
+  // ---------------------------------------------------------------------------
+  List<JobModel> _allJobs = [];
+
+  bool _jobsLoaded = false;
+  bool get jobsLoaded => _jobsLoaded;
+
+  /// Fills the feed. Called once at startup, before the first frame that shows
+  /// jobs; safe to call again, which is what pull-to-refresh does.
+  Future<void> loadJobs({bool force = false}) async {
+    if (_jobsLoaded && !force) return;
+    final jobs = await JobCatalogService.fetch(country: _selectedCountry);
+    _allJobs = jobs;
+    _jobsLoaded = true;
+    notifyListeners();
+  }
+
 
   // Starts COMPLETELY EMPTY (No fake applications)
   final List<ApplicationModel> _myApplications = [];
@@ -202,10 +258,14 @@ class JobSeekerProvider extends ChangeNotifier {
   /// already applied for is noise, not a recommendation.
   List<JobModel> get recommendedJobs {
     final scored = _allJobs
-        .where((j) => j.source == JobSource.luckyBoss && !hasApplied(j.id))
-        // matchScoreFor returns null when the profile has no skills to match
-        // on. Coercing to 0 here means those jobs fall out of the list below,
-        // which is right: with no skills there is nothing to recommend from.
+        .where((j) =>
+            j.source == JobSource.luckyBoss &&
+            !hasApplied(j.id) &&
+            // Recommending work in another country is not a recommendation.
+            // A domestic helper in Chennai has no use for a Jurong site job
+            // she cannot reach, and it pushed the jobs she could take off
+            // the screen.
+            (_selectedCountry.isEmpty || j.countryCode == _selectedCountry))
         .map((j) => (job: j, score: matchScoreFor(j) ?? 0.0))
         .where((e) => e.score > 0)
         .toList()
@@ -216,15 +276,54 @@ class JobSeekerProvider extends ChangeNotifier {
   /// Third-party listings. Always empty when the admin switch is off, so no
   /// caller can accidentally render them.
   List<JobModel> get externalJobs => _externalJobsEnabled
-      ? _allJobs.where((j) => j.source == JobSource.external).toList()
+      ? (_allJobs
+          .where((j) =>
+              j.source == JobSource.external &&
+              (_selectedCountry.isEmpty || j.countryCode == _selectedCountry))
+          .toList()
+        // Best match first here too. The partner section used to show whatever
+        // order the list happened to be in, which is how a construction
+        // candidate ended up looking at a Backend Engineer vacancy.
+        ..sort((a, b) =>
+            (matchScoreFor(b) ?? 0).compareTo(matchScoreFor(a) ?? 0)))
       : const [];
 
-  /// The seeker's match against a job. Returns null when there is nothing to
-  /// match on yet — a profile with no skills cannot be scored, and showing 0%
-  /// would read as a bad match rather than an incomplete profile.
+  /// The seeker's match against a job. Null when there is nothing to match on
+  /// at all — showing 0% would read as a bad match rather than an empty profile.
+  ///
+  /// Skills alone are no longer the test. A field candidate who has picked a
+  /// trade and a category can be scored on those, which is the whole reason the
+  /// feed was empty for them: the gate used to be `skills.isEmpty`, and the
+  /// trade path does not fill `skills` first.
   double? matchScoreFor(JobModel job) {
-    if (_profile.skills.isEmpty) return null;
-    return job.calculateAiMatchPercent(_profile.skills, _profile.preferredCategory);
+    final role = _profile.roleTitle.trim().isNotEmpty
+        ? _profile.roleTitle
+        : _profile.currentTitle;
+
+    if (_profile.skills.isEmpty &&
+        role.trim().isEmpty &&
+        _profile.preferredCategory.trim().isEmpty) {
+      return null;
+    }
+
+    // Scored against every category the candidate will take, best wins. Using
+    // only the first would rank a warehouse job at 25% for someone who told us
+    // they would take warehouse work — just not as their first choice.
+    final categories = _profile.preferredCategories.isEmpty
+        ? <String>['']
+        : _profile.preferredCategories;
+
+    var best = 0.0;
+    for (final category in categories) {
+      final score = job.calculateAiMatchPercent(
+        _profile.skills,
+        category,
+        candidateRole: role,
+        certificates: _profile.certificates,
+      );
+      if (score > best) best = score;
+    }
+    return best;
   }
 
   /// SPEC 30 — the dashboard leads with this number, so it has to mean
@@ -237,7 +336,8 @@ class JobSeekerProvider extends ChangeNotifier {
   /// assumed: an earlier set totalled 110, so every card over-promised while the
   /// score silently clamped — a card promising +10% that moves the bar
   /// by three is worse than no card at all.
-  static const Map<String, int> completionWeights = {
+  /// The professional weighting: a CV, a summary, a department, projects.
+  static const Map<String, int> professionalWeights = {
     'name': 5,
     'email': 5,
     'phone': 5,
@@ -253,6 +353,39 @@ class JobSeekerProvider extends ChangeNotifier {
     'projects': 3,
     'languages': 3,
   };
+
+  /// The field weighting.
+  ///
+  /// The two tables exist because one table could not serve both. Under the
+  /// professional weights a construction worker could fill in every single
+  /// thing that is true about them — trade, years, licences, languages, permit
+  /// status, availability, photo, phone — and still be shown a profile stuck in
+  /// the sixties, because 42% of the score sat behind a resume document, an
+  /// "Executive Bio", a department and a projects list they will never have.
+  /// A completion bar that cannot reach 100% is not a nudge, it is a scold.
+  ///
+  /// So the field table scores what a field candidate genuinely has, and the
+  /// boost cards read from whichever table applies.
+  static const Map<String, int> fieldWeights = {
+    'name': 8,
+    'phone': 8,
+    'category': 8,
+    'role': 16,
+    'skills': 15,
+    'certificates': 12,
+    'languages': 8,
+    'permit': 8,
+    'city': 7,
+    'availability': 5,
+    'photo': 5,
+  };
+
+  /// The weights in force for this candidate.
+  Map<String, int> get completionWeightsFor =>
+      _profile.isFieldWork ? fieldWeights : professionalWeights;
+
+  /// Kept for callers that predate the split. Prefer [completionWeightsFor].
+  static const Map<String, int> completionWeights = professionalWeights;
 
   /// Whether each weighted field is filled. Keyed by the same names.
   Map<String, bool> get completionState => {
@@ -270,12 +403,17 @@ class JobSeekerProvider extends ChangeNotifier {
         'salary': _profile.expectedSalary.trim().isNotEmpty,
         'projects': _profile.projects.isNotEmpty,
         'languages': _profile.languages.isNotEmpty,
+        'role': _profile.roleTitle.trim().isNotEmpty ||
+            _profile.currentTitle.trim().isNotEmpty,
+        'certificates': _profile.certificates.isNotEmpty,
+        'permit': _profile.workPermitStatus.trim().isNotEmpty,
+        'availability': _profile.availability.trim().isNotEmpty,
       };
 
   int get profileCompletion {
     final state = completionState;
     var earned = 0;
-    completionWeights.forEach((key, weight) {
+    completionWeightsFor.forEach((key, weight) {
       if (state[key] == true) earned += weight;
     });
     return earned.clamp(0, 100);
@@ -284,10 +422,30 @@ class JobSeekerProvider extends ChangeNotifier {
   /// What to ask for next. Naming the single highest-value missing field beats
   /// a generic "complete your profile" prompt nobody acts on.
   String? get nextProfileStep {
+    if (_profile.name.trim().isEmpty) return 'Add your name';
+
+    if (_profile.isFieldWork) {
+      // Ordered by what an employer asks the agency for first. Telling a
+      // cleaner to upload a resume, as this used to, asks for something they do
+      // not have and cannot produce.
+      if (_profile.roleTitle.trim().isEmpty &&
+          _profile.currentTitle.trim().isEmpty) {
+        return 'Add your trade so employers can find you';
+      }
+      if (_profile.skills.isEmpty) return 'Add the work you can do';
+      if (_profile.certificates.isEmpty) {
+        return 'Add your licences and cards — they get you shortlisted fastest';
+      }
+      if (_profile.workPermitStatus.trim().isEmpty) {
+        return 'Tell employers whether you can work in that country';
+      }
+      if (_profile.languages.isEmpty) return 'Add the languages you speak';
+      return null;
+    }
+
     if (_profile.skills.isEmpty) return 'Add your skills to start getting matched';
     if (_profile.resumeFileName == null) return 'Upload your resume so employers can shortlist you';
     if (_profile.bio.trim().isEmpty) return 'Add a short professional summary';
-    if (_profile.name.trim().isEmpty) return 'Add your name';
     return null;
   }
 
@@ -399,12 +557,17 @@ class JobSeekerProvider extends ChangeNotifier {
   /// provider outlives the sign-out navigation, so without this the next person
   /// to sign in on this device briefly sees the last one's name and skills.
   Future<void> signOut() async {
+    // Cancel first: a debounced write still in flight would otherwise land
+    // after the wipe and restore the profile that was just cleared.
+    _saveTimer?.cancel();
     await AuthService.logout();
+    await LocalStore.clearAll();
     _isAuthenticated = false;
     _isProfileComplete = false;
     _isDemoMode = false;
     _myApplications.clear();
     _savedJobIds.clear();
+    _documents.clear();
     _profile
       ..name = ''
       ..email = ''
@@ -451,7 +614,7 @@ class JobSeekerProvider extends ChangeNotifier {
         if (_answeredPrompts.contains(p.id)) return false;
         if (_dismissedPrompts.contains(p.id)) return false;
         return switch (p.id) {
-          FeedPrompts.preferredCountry => _profile.preferredCountry.isEmpty,
+          FeedPrompts.preferredCountry => _profile.preferredCountries.isEmpty,
           FeedPrompts.expectedSalary => _profile.expectedSalary.isEmpty,
           FeedPrompts.workMode => _profile.workModes.isEmpty,
           FeedPrompts.availability => _profile.availability.isEmpty,
@@ -474,14 +637,20 @@ class JobSeekerProvider extends ChangeNotifier {
   void answerPrompt(String id, Object value) {
     switch (id) {
       case FeedPrompts.preferredCountry:
-        final code = switch (value as String) {
-          'India' => 'IN',
-          'Singapore' => 'SG',
-          'Malaysia' => 'MY',
-          _ => '',
-        };
-        _profile.preferredCountry = code;
-        if (code.isNotEmpty) _selectedCountry = code;
+        // The prompt now returns a list — a candidate open to two markets was
+        // previously forced to discard one.
+        final names = value is List ? value.cast<String>() : [value as String];
+        final codes = [
+          for (final name in names)
+            switch (name) {
+              'India' => 'IN',
+              'Singapore' => 'SG',
+              'Malaysia' => 'MY',
+              _ => '',
+            }
+        ].where((c) => c.isNotEmpty).toList();
+        _profile.preferredCountries = codes;
+        if (codes.isNotEmpty) _selectedCountry = codes.first;
       case FeedPrompts.expectedSalary:
         _profile.expectedSalary = value as String;
       case FeedPrompts.workMode:
@@ -519,6 +688,13 @@ class JobSeekerProvider extends ChangeNotifier {
   /// Passing them through here would reintroduce exactly the redundancy the
   /// rebuilt wizard exists to remove.
   void applyOnboarding({
+    List<String> categories = const [],
+    String category = '',
+    String roleTitle = '',
+    List<String> certificates = const [],
+    List<String> languages = const [],
+    String workPermitStatus = '',
+    String payPeriod = 'Per month',
     required bool isStudent,
     required String currentCity,
     String currentTitle = '',
@@ -536,6 +712,18 @@ class JobSeekerProvider extends ChangeNotifier {
     bool? openToRelocate,
     bool? hasWorkPermit,
   }) {
+    if (categories.isNotEmpty) {
+      _profile.preferredCategories = List.of(categories);
+    } else if (category.isNotEmpty) {
+      _profile.preferredCategory = category;
+    }
+    if (roleTitle.isNotEmpty) _profile.roleTitle = roleTitle;
+    if (certificates.isNotEmpty) _profile.certificates = List.of(certificates);
+    if (languages.isNotEmpty) _profile.languages = List.of(languages);
+    if (workPermitStatus.isNotEmpty) {
+      _profile.workPermitStatus = workPermitStatus;
+    }
+    _profile.payPeriod = payPeriod;
     _profile.isStudent = isStudent;
     _profile.currentCity = currentCity.trim();
     _profile.currentTitle = currentTitle.trim();
@@ -544,7 +732,9 @@ class JobSeekerProvider extends ChangeNotifier {
     _profile.passingYear = passingYear;
     _profile.noticePeriod = noticePeriod;
     if (resumeFileName != null) _profile.resumeFileName = resumeFileName;
-    _profile.preferredCountry = preferredCountry;
+    if (preferredCountry.isNotEmpty) {
+      _profile.preferredCountries = [preferredCountry];
+    }
     _profile.workModes = List.of(workModes);
     _profile.jobTypes = List.of(jobTypes);
     _profile.expectedSalary = expectedSalary;
@@ -683,6 +873,26 @@ class JobSeekerProvider extends ChangeNotifier {
         _profile.languages = List<String>.from(value as List);
       case 'skills':
         _profile.skills = List<String>.from(value as List);
+      case 'role':
+        // Written to both: roleTitle is the field-work name for it, and
+        // currentTitle is what matching, search and the profile header read.
+        _profile.roleTitle = value as String;
+        _profile.currentTitle = value;
+      case 'certificates':
+        _profile.certificates = List<String>.from(value as List);
+      case 'permit':
+        _profile.workPermitStatus = value as String;
+        _profile.hasWorkPermit = switch (value) {
+          'Citizen' ||
+          'Permanent Resident' ||
+          'Have a valid work permit' ||
+          'Have an employment pass' =>
+            true,
+          'Need employer to sponsor a permit' => false,
+          _ => null,
+        };
+      case 'availability':
+        _profile.availability = value as String;
     }
     notifyListeners();
     await syncProfile();

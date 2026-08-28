@@ -1,340 +1,448 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/theme/app_theme.dart';
 import '../../providers/employer_provider.dart';
-import '../../widgets/ledger_components.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
 import '../jobs/post_job_wizard_screen.dart';
+import '../settings_screen.dart';
+import '../employer_notifications_screen.dart';
+import '../../widgets/lucky_ai_copilot_modal.dart';
+import '../auth/verification_pending_screen.dart';
+import '../../models/employer_job.dart';
 
-class EmployerDashboardTab extends StatefulWidget {
-  const EmployerDashboardTab({super.key});
+/// The employer dashboard, spec §78.
+///
+/// The nine cards the specification asks for, in the order a hiring manager
+/// reads them: what is live, who is waiting, what is booked, and what the plan
+/// has left. Each card is a way in — a count that cannot be tapped is a fact
+/// nobody can act on, which is how dashboards become wallpaper.
+class EmployerDashboardTab extends StatelessWidget {
+  final VoidCallback? onOpenJobs;
+  final VoidCallback? onOpenCandidates;
 
-  @override
-  State<EmployerDashboardTab> createState() => _EmployerDashboardTabState();
-}
-
-class _EmployerDashboardTabState extends State<EmployerDashboardTab> {
-  int _notificationCount = 2;
-
-  void _showNotifications(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.65,
-          decoration: const BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.rule,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Recruiter Alerts', style: AppTheme.sectionHeader()),
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _notificationCount = 0);
-                        Navigator.pop(ctx);
-                      },
-                      child: Text('Mark all read', style: AppTheme.meta(color: AppTheme.signalProgress, size: 11)),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: AppTheme.rule),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildAlertCard(
-                      icon: Icons.person_add_alt_1_rounded,
-                      iconColor: AppTheme.signalPositive,
-                      washColor: AppTheme.signalPositiveWash,
-                      title: 'New Candidate Applied',
-                      body: 'Priya Raghunathan (91% AI Fit) applied for Senior Backend Engineer.',
-                      time: '15 mins ago',
-                    ),
-                    const SizedBox(height: 10),
-                    _buildAlertCard(
-                      icon: Icons.event_available_rounded,
-                      iconColor: AppTheme.signalProgress,
-                      washColor: AppTheme.signalProgressWash,
-                      title: 'Interview Confirmed',
-                      body: 'Technical Interview confirmed for Friday with Wei Ling Tan.',
-                      time: '1 hour ago',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  static Widget _buildAlertCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color washColor,
-    required String title,
-    required String body,
-    required String time,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusRow),
-        border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: washColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTheme.rowTitle()),
-                const SizedBox(height: 3),
-                Text(body, style: AppTheme.body(size: 12)),
-                const SizedBox(height: 6),
-                MetaText(time),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  const EmployerDashboardTab({
+    super.key,
+    this.onOpenJobs,
+    this.onOpenCandidates,
+  });
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<EmployerProvider>();
+    final expiry = provider.subscriptionExpiry;
+    final daysLeft = expiry.difference(DateTime.now()).inDays;
 
-    return SafeArea(
-      child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+    return Scaffold(
+      backgroundColor: AppTheme.paperOf(context),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
           children: [
-            // Top App Bar
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    LuckyBossBrandLogo(height: 32),
-                    SizedBox(width: 8),
-                    MetaText('Portal', color: AppTheme.ink),
-                  ],
+                const LuckyBossBrandLogo(height: 30),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => LuckyAiCopilotModal.show(context),
+                  tooltip: 'Lucky AI',
+                  icon: Icon(Icons.auto_awesome_outlined,
+                      color: AppTheme.inkOf(context)),
                 ),
                 IconButton(
-                  onPressed: () => _showNotifications(context),
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications_none_rounded, color: AppTheme.ink, size: 22),
-                      if (_notificationCount > 0)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: Container(
-                            padding: const EdgeInsets.all(3.5),
-                            decoration: const BoxDecoration(
-                              color: AppTheme.signalClosed,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '$_notificationCount',
-                              style: AppTheme.meta(color: Colors.white, size: 8, weight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                    ],
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EmployerNotificationsScreen(
+                        onOpenCandidates: onOpenCandidates,
+                        onOpenJobs: onOpenJobs,
+                      ),
+                    ),
                   ),
+                  tooltip: 'Notifications',
+                  icon: Icon(Icons.notifications_none,
+                      color: AppTheme.inkOf(context)),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  ),
+                  tooltip: 'Settings',
+                  icon: Icon(Icons.settings_outlined,
+                      color: AppTheme.inkOf(context)),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const BrandRule(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Company Document Header Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const MetaText('Corporate ATS Workspace'),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.signalPositiveWash,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusChip),
-                        ),
-                        child: const MetaText('Verified', color: AppTheme.signalPositive, size: 9),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(provider.companyName, style: AppTheme.screenTitle(size: 19)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Regional recruitment pipeline across Singapore, Malaysia & India.',
-                    style: AppTheme.body(size: 12),
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(height: 1, color: AppTheme.rule),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCreditStat(
-                          'Contact Credits',
-                          '${provider.contactCreditsRemaining}/${provider.contactCreditsTotal}',
-                          provider.contactCreditsRemaining > 20 ? AppTheme.signalProgress : AppTheme.signalAttention,
-                        ),
-                      ),
-                      Container(width: 1, height: 28, color: AppTheme.rule),
-                      Expanded(
-                        child: _buildCreditStat(
-                          'AI Screenings',
-                          '${provider.aiCreditsRemaining}/${provider.aiCreditsTotal}',
-                          provider.aiCreditsRemaining > 10 ? AppTheme.signalPositive : AppTheme.signalAttention,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            Text(
+              provider.company.name.isEmpty
+                  ? 'Your hiring'
+                  : provider.company.name,
+              style: AppTheme.serifTitle(
+                  fontSize: 26, color: AppTheme.inkOf(context)),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              provider.jobs.isEmpty
+                  ? 'Post your first vacancy to see who we can send you.'
+                  : 'Here is where your hiring stands today.',
+              style: AppTheme.sansRegular(
+                  fontSize: 13.5, color: AppTheme.inkMutedOf(context)),
             ),
             const SizedBox(height: 16),
+            if (!provider.canPost) ...[
+              _VerificationBanner(status: provider.company.status),
+              const SizedBox(height: 18),
+            ],
 
-            // Metrics Ledger
-            Row(
-              children: [
-                Expanded(child: _buildMetricTile('Active Jobs', '${provider.jobs.length}', AppTheme.ink)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildMetricTile('Candidates', '${provider.applicants.length}', AppTheme.signalProgress)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildMetricTile('Interviewing', '${provider.applicants.where((a) => a.status.contains('Interview')).length}', AppTheme.signalPositive)),
+            // --- The pipeline, spec §78 ---
+            _Section(title: 'Your pipeline'),
+            _CardGrid(
+              cards: [
+                _Metric(
+                  label: 'Active jobs',
+                  value: '${provider.activeJobsCount}',
+                  icon: Icons.work_outline,
+                  tint: AppTheme.signalSource,
+                  onTap: onOpenJobs,
+                ),
+                _Metric(
+                  label: 'New applicants',
+                  value: '${provider.newApplicantsCount}',
+                  icon: Icons.person_add_alt,
+                  tint: AppTheme.signalPositive,
+                  onTap: onOpenCandidates,
+                ),
+                _Metric(
+                  label: 'Recommended',
+                  value: '${provider.recommendedCount}',
+                  icon: Icons.auto_awesome_outlined,
+                  tint: AppTheme.signalProgress,
+                  onTap: onOpenCandidates,
+                  // The number that makes this app worth opening on a quiet
+                  // day: people we can send you who have not applied.
+                  footnote: 'In the Lucky Boss database',
+                ),
+                _Metric(
+                  label: 'Interviews',
+                  value: '${provider.interviewsCount}',
+                  icon: Icons.event_outlined,
+                  tint: AppTheme.signalAttention,
+                  onTap: onOpenCandidates,
+                ),
+                _Metric(
+                  label: 'Offers pending',
+                  value: '${provider.offersPendingCount}',
+                  icon: Icons.drafts_outlined,
+                  tint: AppTheme.signalProgress,
+                  onTap: onOpenCandidates,
+                ),
+                _Metric(
+                  label: 'Hired',
+                  value: '${provider.hiredCount}',
+                  icon: Icons.verified_outlined,
+                  tint: AppTheme.signalPositive,
+                  onTap: onOpenCandidates,
+                ),
               ],
             ),
-            const SizedBox(height: 20),
 
-            // Action Card: Post Vacancy
+            const SizedBox(height: 22),
+            _Section(title: 'Your plan'),
+            _PlanRow(
+              label: 'Contact credits',
+              used: provider.contactCreditsUsed,
+              total: provider.contactCreditsTotal,
+              hint: 'Each one reveals a candidate\'s phone and email.',
+            ),
+            const SizedBox(height: 10),
+            _PlanRow(
+              label: 'AI credits',
+              used: provider.aiCreditsUsed,
+              total: provider.aiCreditsTotal,
+              hint: 'Used for job descriptions and match explanations.',
+            ),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.radiusRow),
-                border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
+                color: daysLeft < 14
+                    ? AppTheme.signalAttentionWash
+                    : Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: daysLeft < 14
+                      ? AppTheme.signalAttention.withValues(alpha: 0.4)
+                      : Theme.of(context).dividerColor,
+                ),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.paper,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                      border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
-                    ),
-                    child: const Icon(Icons.add_business_rounded, color: AppTheme.ink, size: 20),
-                  ),
-                  const SizedBox(width: 12),
+                  Icon(Icons.event_repeat_outlined,
+                      size: 18,
+                      color: daysLeft < 14
+                          ? AppTheme.signalAttention
+                          : AppTheme.inkMutedOf(context)),
+                  const SizedBox(width: 11),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Post a New Vacancy', style: AppTheme.rowTitle()),
-                        const SizedBox(height: 2),
-                        Text('Publish job with skill criteria', style: AppTheme.body(size: 11.5)),
+                        Text('Subscription',
+                            style: AppTheme.sansBold(
+                                fontSize: 13.5,
+                                color: AppTheme.inkOf(context))),
+                        Text('$daysLeft days remaining',
+                            style: AppTheme.sansRegular(
+                                fontSize: 12,
+                                color: AppTheme.inkMutedOf(context))),
                       ],
                     ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PostJobWizardScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.ink,
-                      foregroundColor: AppTheme.surface,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusControl)),
-                    ),
-                    child: Text('Create', style: AppTheme.button(color: AppTheme.surface)),
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PostJobWizardScreen()),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: Icon(Icons.add,
+                    color: AppTheme.onPrimaryFillOf(context), size: 20),
+                label: Text('Post a vacancy',
+                    style: AppTheme.sansBold(
+                        fontSize: 15,
+                        color: AppTheme.onPrimaryFillOf(context))),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String title;
+
+  const _Section({required this.title});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(title,
+            style: AppTheme.sansBold(
+                fontSize: 13.5, color: AppTheme.inkOf(context))),
       );
-  }
+}
 
-  Widget _buildCreditStat(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MetaText(label, size: 9),
-          const SizedBox(height: 2),
-          Text(value, style: AppTheme.score(size: 14, color: color)),
-        ],
-      ),
-    );
-  }
+class _Metric {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color tint;
+  final VoidCallback? onTap;
+  final String? footnote;
 
-  Widget _buildMetricTile(String label, String value, Color inkColor) {
+  const _Metric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.tint,
+    this.onTap,
+    this.footnote,
+  });
+}
+
+class _CardGrid extends StatelessWidget {
+  final List<_Metric> cards;
+
+  const _CardGrid({required this.cards});
+
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: cards.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.45,
+        ),
+        itemBuilder: (context, i) {
+          final card = cards[i];
+          return InkWell(
+            onTap: card.onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 13, 12, 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(card.icon, size: 19, color: card.tint),
+                  const Spacer(),
+                  Text(card.value,
+                      style: AppTheme.serifTitle(
+                          fontSize: 27, color: AppTheme.inkOf(context))),
+                  Text(card.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.sansMedium(
+                          fontSize: 12.5,
+                          color: AppTheme.inkMutedOf(context))),
+                  if (card.footnote != null)
+                    Text(card.footnote!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.sansRegular(
+                            fontSize: 10, color: AppTheme.inkFaintOf(context))),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+}
+
+class _PlanRow extends StatelessWidget {
+  final String label;
+  final int used;
+  final int total;
+  final String hint;
+
+  const _PlanRow({
+    required this.label,
+    required this.used,
+    required this.total,
+    required this.hint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = total - used;
+    final fraction = total == 0 ? 0.0 : (used / total).clamp(0.0, 1.0);
+    final low = remaining <= total * 0.1;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusRow),
-        border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MetaText(label, size: 9.5),
-          const SizedBox(height: 6),
-          Text(value, style: AppTheme.score(size: 20, color: inkColor)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(label,
+                    style: AppTheme.sansBold(
+                        fontSize: 13.5, color: AppTheme.inkOf(context))),
+              ),
+              Text('$remaining left',
+                  style: AppTheme.sansBold(
+                      fontSize: 13,
+                      color: low
+                          ? AppTheme.signalClosed
+                          : AppTheme.signalPositive)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fraction,
+              minHeight: 6,
+              backgroundColor: AppTheme.surfaceOf(context),
+              valueColor: AlwaysStoppedAnimation(
+                  low ? AppTheme.signalClosed : AppTheme.signalSource),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(hint,
+              style: AppTheme.sansRegular(
+                  fontSize: 11.5, color: AppTheme.inkFaintOf(context))),
         ],
       ),
     );
   }
+}
+
+
+/// Why publishing is unavailable, on the first screen a recruiter sees.
+///
+/// Without it the Post button simply produces drafts and nobody knows why —
+/// which is how a gate that exists for a good reason reads as a broken app.
+class _VerificationBanner extends StatelessWidget {
+  final CompanyStatus status;
+
+  const _VerificationBanner({required this.status});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const VerificationPendingScreen()),
+        ),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.signalAttentionWash,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: AppTheme.signalAttention.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.hourglass_top_rounded,
+                  size: 18, color: AppTheme.signalAttention),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      status == CompanyStatus.draft
+                          ? 'Finish registering to publish'
+                          : 'Verification in progress',
+                      style: AppTheme.sansBold(
+                          fontSize: 13.5, color: AppTheme.inkOf(context)),
+                    ),
+                    Text(
+                      'You can browse candidates and draft vacancies. They go '
+                      'live once we have checked your company.',
+                      style: AppTheme.sansRegular(
+                          fontSize: 12.5,
+                          color: AppTheme.inkMutedOf(context)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 18, color: AppTheme.inkMutedOf(context)),
+            ],
+          ),
+        ),
+      );
 }

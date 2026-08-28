@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The agency crest was drawn against black; anything else puts a second
+         ring of colour around a badge that already has its own border. -->
+    <color name="ic_launcher_background">#000000</color>
+</resources>

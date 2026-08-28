@@ -4,9 +4,13 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/profile_photo_avatar.dart';
 import '../../widgets/profile_boost_cards.dart';
+import '../../widgets/document_preview.dart';
+import '../../widgets/licences_sheet.dart';
 import '../../widgets/profile_field_editor.dart';
+import '../../services/document_service.dart';
 import '../../services/resume_service.dart';
 import '../../core/constants/app_data.dart';
+import '../../models/uploaded_document.dart';
 import '../../providers/job_seeker_provider.dart';
 import '../../services/auth_service.dart';
 import '../auth/sign_in_screen.dart';
@@ -81,7 +85,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: customSkillCtrl,
+                                                    textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+controller: customSkillCtrl,
                           decoration: InputDecoration(
                             hintText: 'Add custom skill tag...',
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -201,7 +207,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 TextField(
                   controller: bioCtrl,
                   maxLines: 5,
-                  autofocus: true,
+                  autofocus: false,
                   decoration: InputDecoration(
                     hintText: 'Write a brief professional summary...',
                     fillColor: AppTheme.bgPaper,
@@ -355,35 +361,70 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
 
   /// Resume upload + AI parse. Gated server-side on the admin flags; when the
   /// parser is off the candidate is told to fill the fields in themselves.
+  /// Picks a resume, keeps it, and parses it only if there is a parser.
+  ///
+  /// The order is the same one the profile photo now follows, for the same
+  /// reason. This used to call `ResumeService.pickAndParse()` and nothing else,
+  /// so on a standalone install — where the parser endpoint does not exist —
+  /// the candidate chose their CV, watched it be rejected, and ended up with no
+  /// resume on file at all. Keeping the document is the part that matters to
+  /// them; extracting text out of it is a convenience on top.
   Future<void> _uploadResume() async {
     final provider = context.read<JobSeekerProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
-    final result = await ResumeService.pickAndParse();
+    final picked = await DocumentService.pickDocument();
     if (!mounted) return;
 
-    if (result.ok) {
-      final r = result.data!;
-      provider.updateResume(r.fileName);
-      if (r.skills.isNotEmpty) provider.setSkills(r.skills);
-      if (r.summary.isNotEmpty) provider.updateBio(r.summary);
-      await provider.syncProfile();
+    if (!picked.isOk) {
+      if (picked.failure == PickFailure.cancelled) return;
       messenger.showSnackBar(SnackBar(
-        content: Text('Filled from ${r.fileName}. Check the details below.',
+        content: Text(picked.message ?? 'Could not read that file.',
             style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
-        backgroundColor: AppTheme.signalPositive,
+        backgroundColor: AppTheme.signalClosed,
         behavior: SnackBarBehavior.floating,
       ));
       return;
     }
 
-    if (result.failure == ResumeFailure.cancelled) return;
+    final file = picked.file!;
+    final document = await DocumentService.save(
+      file: file,
+      kind: DocumentKind.resume,
+      label: 'Resume',
+    );
+    if (!mounted) return;
+
+    // Any resume already on file is replaced rather than accumulated — a
+    // candidate has one current CV, and a list of four is a support call.
+    for (final old in provider.documentsOfKind(DocumentKind.resume)) {
+      if (old.id != document.id) await provider.removeDocument(old.id);
+    }
+    if (!mounted) return;
+    await provider.addDocument(document);
+    if (!mounted) return;
+
     messenger.showSnackBar(SnackBar(
-      content: Text(result.message ?? 'Could not read that resume.',
+      content: Text('${file.fileName} saved to your profile.',
           style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
-      backgroundColor: result.failure == ResumeFailure.disabled
-          ? AppTheme.signalAttention
-          : AppTheme.signalClosed,
+      backgroundColor: AppTheme.signalPositive,
+      behavior: SnackBarBehavior.floating,
+    ));
+
+    // Autofill, where a server offers it. A failure here costs the candidate
+    // nothing: their resume is already on file.
+    final parsed = await ResumeService.pickAndParse(alreadyPicked: file);
+    if (!mounted || !parsed.ok) return;
+
+    final r = parsed.data!;
+    if (r.skills.isNotEmpty) provider.setSkills(r.skills);
+    if (r.summary.isNotEmpty) provider.updateBio(r.summary);
+    await provider.syncProfile();
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text('Filled in from ${file.fileName}. Check the details below.',
+          style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
+      backgroundColor: AppTheme.signalPositive,
       behavior: SnackBarBehavior.floating,
     ));
   }
@@ -549,7 +590,18 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               onUploadPhoto: _promptPhoto,
             ),
           ),
-          // 2. Resume Card
+          // 2. Licences and cards — the field-work equivalent of a resume, and
+          //    the single most valuable thing on a trade profile. Employers ask
+          //    "does he have the forklift ticket" before anything else.
+          if (profile.isFieldWork) ...[
+            const _CertificatesCard(),
+            const SizedBox(height: 16),
+          ],
+
+          // 3. Resume Card. Professional path only: a site worker has no CV,
+          //    and a card telling them their profile is missing one is asking
+          //    for something they cannot produce.
+          if (!profile.isFieldWork)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -617,9 +669,9 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          if (!profile.isFieldWork) const SizedBox(height: 16),
 
-          // 3. Verified Skills Card
+          // 4. Skills / work card
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -633,7 +685,13 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Skills & Competencies (${profile.skills.length})', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
+                    Text(
+                      profile.isFieldWork
+                          ? 'Work I can do (${profile.skills.length})'
+                          : 'Skills & Competencies (${profile.skills.length})',
+                      style: AppTheme.sansBold(
+                          fontSize: 14, color: AppTheme.inkOf(context)),
+                    ),
                     InkWell(
                       onTap: () => _showAddSkillDialog(context, provider),
                       child: Row(
@@ -648,7 +706,12 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 ),
                 const SizedBox(height: 12),
                 profile.skills.isEmpty
-                    ? Text('No skills added yet. Tap "Add / Search" to choose skills.', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted))
+                    ? Text(
+                        profile.isFieldWork
+                            ? 'Nothing added yet. Tap "Add / Search" to pick the work you can do.'
+                            : 'No skills added yet. Tap "Add / Search" to choose skills.',
+                        style: AppTheme.sansRegular(
+                            fontSize: 12, color: AppTheme.textMuted))
                     : Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -693,7 +756,11 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Executive Bio', style: AppTheme.sansBold(fontSize: 14, color: AppTheme.inkOf(context))),
+                    Text(
+                      profile.isFieldWork ? 'About me' : 'Executive Bio',
+                      style: AppTheme.sansBold(
+                          fontSize: 14, color: AppTheme.inkOf(context)),
+                    ),
                     InkWell(
                       onTap: () => _showEditBioDialog(context, provider),
                       child: Row(
@@ -790,6 +857,166 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
             ]),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Licences, cards and certificates — and whether the card itself is on file.
+///
+/// A card of its own rather than folded in with skills, because it is a
+/// different kind of claim. A skill is what somebody says they can do; a licence
+/// is a thing they hold, and it is what an employer screens on first for
+/// warehouse, driving, security and construction work.
+///
+/// The distinction this draws is the one Shantosh asked for: a ticked licence
+/// and an uploaded licence are not the same thing, and showing them identically
+/// let a candidate believe they had submitted a document they had only named.
+/// Ticked shows plain; uploaded shows green with its verification state.
+class _CertificatesCard extends StatelessWidget {
+  const _CertificatesCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<JobSeekerProvider>();
+    final certificates = provider.profile.certificates;
+    final uploaded =
+        certificates.where(provider.hasProofFor).length;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text('Licences & Cards (${certificates.length})',
+                    style: AppTheme.sansBold(
+                        fontSize: 14, color: AppTheme.inkOf(context))),
+              ),
+              InkWell(
+                onTap: () => LicencesSheet.open(context),
+                child: Row(
+                  children: [
+                    const Icon(Icons.upload_file_outlined,
+                        size: 16, color: AppTheme.royalBlue),
+                    const SizedBox(width: 4),
+                    Text('Add / Upload',
+                        style: AppTheme.sansBold(
+                            fontSize: 12, color: AppTheme.royalBlue)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (certificates.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              uploaded == certificates.length
+                  ? 'All $uploaded uploaded and awaiting verification.'
+                  : '$uploaded of ${certificates.length} uploaded. '
+                      'Tap a card without a file to add it.',
+              style: AppTheme.sansRegular(
+                  fontSize: 12, color: AppTheme.inkFaintOf(context)),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (certificates.isEmpty)
+            Text(
+              'No licences added. If you hold any — a driving class, a forklift '
+              'licence, a safety card — add them and upload a photo. They get '
+              'you shortlisted faster than anything else here.',
+              style: AppTheme.sansRegular(
+                  fontSize: 12, color: AppTheme.textMuted),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final certificate in certificates)
+                  _CertificateChip(
+                    label: certificate,
+                    proof: provider.documentForCertificate(certificate),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CertificateChip extends StatelessWidget {
+  final String label;
+  final UploadedDocument? proof;
+
+  const _CertificateChip({required this.label, this.proof});
+
+  @override
+  Widget build(BuildContext context) {
+    final document = proof;
+    final verified = document?.status == DocumentStatus.verified;
+    final uploaded = document != null;
+
+    final tint = verified
+        ? AppTheme.emeraldDark
+        : (uploaded ? AppTheme.royalBlue : AppTheme.textMuted);
+
+    return InkWell(
+      onTap: document == null
+          ? () => LicencesSheet.open(context)
+          : () => DocumentPreview.open(context, document),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: uploaded
+              ? tint.withValues(alpha: 0.08)
+              : Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: uploaded
+                ? tint.withValues(alpha: 0.35)
+                : Theme.of(context).dividerColor,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              verified
+                  ? Icons.verified_rounded
+                  : (uploaded
+                      ? Icons.hourglass_top_rounded
+                      : Icons.upload_file_outlined),
+              size: 13,
+              color: tint,
+            ),
+            const SizedBox(width: 5),
+            Text(label,
+                style: AppTheme.sansBold(
+                    fontSize: 12, color: AppTheme.inkOf(context))),
+            const SizedBox(width: 5),
+            Text(
+              // Says exactly where the document stands. "Not uploaded" is the
+              // honest label for a licence that has only been ticked, and it is
+              // also the instruction — tapping the chip opens the upload sheet.
+              verified
+                  ? 'Verified'
+                  : (uploaded ? 'Checking' : 'Not uploaded'),
+              style: AppTheme.sansMedium(fontSize: 10.5, color: tint),
+            ),
+          ],
+        ),
       ),
     );
   }

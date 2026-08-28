@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../providers/job_seeker_provider.dart';
+import 'licences_sheet.dart';
 import 'profile_field_editor.dart';
 
 /// One thing the candidate could add, and what it is worth.
@@ -57,9 +58,12 @@ class ProfileBoostCards extends StatelessWidget {
     // first card should be the one that moves the score most.
     final state = context.watch<JobSeekerProvider>().completionState;
 
-    // Weight comes from the provider's own table, so a card can never advertise
-    // a gain the score will not actually deliver.
-    int gain(String key) => JobSeekerProvider.completionWeights[key] ?? 0;
+    // Weight comes from whichever table applies to this candidate, so a card can
+    // never advertise a gain the score will not actually deliver.
+    final provider = context.read<JobSeekerProvider>();
+    final weights = provider.completionWeightsFor;
+    final isFieldWork = provider.profile.isFieldWork;
+    int gain(String key) => weights[key] ?? 0;
 
     ProfileBoost editor(
       String key,
@@ -76,7 +80,63 @@ class ProfileBoostCards extends StatelessWidget {
           onTap: () => ProfileFieldEditor.open(context, field),
         );
 
-    final boosts = <ProfileBoost>[
+    // The field list. Nothing here asks for a document, a written summary or a
+    // department — a plumber has none of those, and cards demanding them were
+    // the app telling him his profile was incomplete in ways he could not fix.
+    final fieldBoosts = <ProfileBoost>[
+      if (state['role'] != true)
+        editor('role', Icons.handyman_outlined,
+            'Your trade is the first thing employers search',
+            'Add your trade', ProfileField.role),
+      if (state['skills'] != true)
+        ProfileBoost(
+          icon: Icons.build_outlined,
+          headline: 'List the work you can do',
+          action: 'Add work',
+          gain: gain('skills'),
+          onTap: onAddSkills,
+        ),
+      if (state['certificates'] != true)
+        ProfileBoost(
+          icon: Icons.badge_outlined,
+          headline: 'Licences and cards get you shortlisted fastest',
+          action: 'Add licences',
+          gain: gain('certificates'),
+          // Deliberately not the generic field editor. A licence needs a file
+          // uploaded, not a name ticked, and routing it through the chip sheet
+          // is what let a candidate press Save believing they had submitted a
+          // document.
+          onTap: () => LicencesSheet.open(context),
+        ),
+      if (state['permit'] != true)
+        editor('permit', Icons.verified_user_outlined,
+            'Employers ask this before anything else',
+            'Add work permit', ProfileField.workPermit),
+      if (state['languages'] != true)
+        editor('languages', Icons.translate, 'What languages do you speak?',
+            'Add languages', ProfileField.languages),
+      if (state['city'] != true)
+        editor('city', Icons.location_on_outlined,
+            'Jobs near you come first', 'Add location', ProfileField.city),
+      if (state['availability'] != true)
+        editor('availability', Icons.event_available_outlined,
+            'When can you start?', 'Add availability',
+            ProfileField.availability),
+      if (state['photo'] != true)
+        ProfileBoost(
+          icon: Icons.photo_camera_outlined,
+          headline: 'A photo makes your profile stand out',
+          action: 'Add photo',
+          gain: gain('photo'),
+          onTap: onUploadPhoto,
+        ),
+      if (state['phone'] != true)
+        editor('phone', Icons.phone_outlined,
+            'Employers call before they email', 'Add number',
+            ProfileField.phone),
+    ];
+
+    final professionalBoosts = <ProfileBoost>[
       if (state['skills'] != true)
         ProfileBoost(
           icon: Icons.workspace_premium_outlined,
@@ -136,6 +196,8 @@ class ProfileBoostCards extends StatelessWidget {
             'Recruiters call before they email', 'Add number',
             ProfileField.phone),
     ];
+
+    final boosts = isFieldWork ? fieldBoosts : professionalBoosts;
 
     // Nothing left to add: the section removes itself rather than showing an
     // empty carousel or a congratulatory card nobody asked for.

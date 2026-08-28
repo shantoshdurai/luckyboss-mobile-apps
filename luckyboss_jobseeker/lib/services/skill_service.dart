@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/config/api_config.dart';
+import '../core/constants/app_data.dart';
 
 /// A skill as the taxonomy knows it.
 class SkillSuggestion {
@@ -162,59 +163,32 @@ class SkillService {
         .toList();
   }
 
-  static const List<SkillSuggestion> _offlineTaxonomy = [
-    // IT & Software
-    SkillSuggestion(id: 1, name: 'Flutter', category: 'IT & Software'),
-    SkillSuggestion(id: 2, name: 'Dart', category: 'IT & Software'),
-    SkillSuggestion(id: 3, name: 'React Native', category: 'IT & Software'),
-    SkillSuggestion(id: 4, name: 'Python', category: 'IT & Software'),
-    SkillSuggestion(id: 5, name: 'Firebase', category: 'IT & Software'),
-    SkillSuggestion(id: 6, name: 'REST APIs', category: 'IT & Software'),
-    SkillSuggestion(id: 7, name: 'JavaScript', category: 'IT & Software'),
-    SkillSuggestion(id: 8, name: 'TypeScript', category: 'IT & Software'),
-    SkillSuggestion(id: 9, name: 'Node.js', category: 'IT & Software'),
-    SkillSuggestion(id: 10, name: 'SQL', category: 'IT & Software'),
-    SkillSuggestion(id: 11, name: 'Docker', category: 'IT & Software'),
-    SkillSuggestion(id: 12, name: 'Kubernetes', category: 'IT & Software'),
-    SkillSuggestion(id: 13, name: 'AWS', category: 'IT & Software'),
-    SkillSuggestion(id: 14, name: 'Git', category: 'IT & Software'),
-    SkillSuggestion(id: 15, name: 'CI/CD', category: 'IT & Software'),
-    SkillSuggestion(id: 16, name: 'Kotlin', category: 'IT & Software'),
-    SkillSuggestion(id: 17, name: 'Swift', category: 'IT & Software'),
-    SkillSuggestion(id: 18, name: 'Java', category: 'IT & Software'),
-    SkillSuggestion(id: 19, name: 'UI/UX Design', category: 'IT & Software'),
-    SkillSuggestion(id: 20, name: 'Figma', category: 'IT & Software'),
-
-    // Logistics & Warehouse
-    SkillSuggestion(id: 21, name: 'Warehouse Operations', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 22, name: 'Supply Chain', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 23, name: 'Forklift Operator', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 24, name: 'Inventory Control', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 25, name: 'WMS Systems', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 26, name: 'Site Safety', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 27, name: 'Fleet Management', category: 'Logistics & Warehouse'),
-    SkillSuggestion(id: 28, name: 'Procurement', category: 'Logistics & Warehouse'),
-
-    // Finance & Accounting
-    SkillSuggestion(id: 31, name: 'Financial Analysis', category: 'Finance'),
-    SkillSuggestion(id: 32, name: 'Accounting', category: 'Finance'),
-    SkillSuggestion(id: 33, name: 'QuickBooks', category: 'Finance'),
-    SkillSuggestion(id: 34, name: 'Tally Prime', category: 'Finance'),
-    SkillSuggestion(id: 35, name: 'Auditing', category: 'Finance'),
-    SkillSuggestion(id: 36, name: 'Taxation', category: 'Finance'),
-    SkillSuggestion(id: 37, name: 'Excel Advanced', category: 'Finance'),
-
-    // Healthcare
-    SkillSuggestion(id: 41, name: 'Patient Care', category: 'Healthcare'),
-    SkillSuggestion(id: 42, name: 'Clinical Nursing', category: 'Healthcare'),
-    SkillSuggestion(id: 43, name: 'Emergency Response', category: 'Healthcare'),
-    SkillSuggestion(id: 44, name: 'BLS Certification', category: 'Healthcare'),
-
-    // Sales & Marketing
-    SkillSuggestion(id: 51, name: 'Digital Marketing', category: 'Sales & Marketing'),
-    SkillSuggestion(id: 52, name: 'SEO & SEM', category: 'Sales & Marketing'),
-    SkillSuggestion(id: 53, name: 'B2B Sales', category: 'Sales & Marketing'),
-    SkillSuggestion(id: 54, name: 'Lead Generation', category: 'Sales & Marketing'),
-    SkillSuggestion(id: 55, name: 'CRM (Salesforce)', category: 'Sales & Marketing'),
-  ];
+  /// The taxonomy the app falls back to when the Laravel skill service is not
+  /// reachable — which, on the standalone APK, is always.
+  ///
+  /// It is derived from [AppData.workCategories] rather than hand-written. The
+  /// hand-written version that used to sit here held fifty-five entries, forty
+  /// of them software and finance terms, and nothing at all for the trades the
+  /// agency actually places. A candidate typing "weld", "forklift" or "cook"
+  /// was offered no suggestions, which reads as "this app has never heard of
+  /// your job".
+  ///
+  /// Deriving it means a category added to [AppData] brings its vocabulary with
+  /// it and this list can never fall behind again. Roles are included alongside
+  /// abilities because on the field path what a candidate wants to enter is
+  /// "Plumber", not a list of plumbing tasks.
+  static final List<SkillSuggestion> _offlineTaxonomy = () {
+    final out = <SkillSuggestion>[];
+    var id = 1;
+    for (final category in AppData.workCategories) {
+      for (final term in [
+        ...category.roleNames,
+        ...category.abilities,
+        ...category.certificates,
+      ]) {
+        out.add(SkillSuggestion(id: id++, name: term, category: category.name));
+      }
+    }
+    return out;
+  }();
 }

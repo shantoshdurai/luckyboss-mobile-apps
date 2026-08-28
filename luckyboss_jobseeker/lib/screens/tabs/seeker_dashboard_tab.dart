@@ -72,8 +72,14 @@ class SeekerDashboardTab extends StatelessWidget {
     final pending = provider.pendingPrompts;
     final promptIndex = breakIndex > categorySlot ? breakIndex - 1 : breakIndex;
 
+    // Keyed by the question. The feed rebuilds on every provider notification,
+    // and without a key Flutter matches this State by position — so answering
+    // or dismissing one question could hand its half-typed answer to the next.
     return promptIndex < pending.length
-        ? FeedPromptCard(prompt: pending[promptIndex])
+        ? FeedPromptCard(
+            key: ValueKey(pending[promptIndex].id),
+            prompt: pending[promptIndex],
+          )
         : null;
   }
 

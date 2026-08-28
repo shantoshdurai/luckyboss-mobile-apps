@@ -1,36 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme/app_theme.dart';
-import '../../models/employer_models.dart';
-import '../../providers/employer_provider.dart';
-import '../../widgets/ledger_components.dart';
 
-/// THE CANDIDATES SCREEN
+import '../../core/theme/app_theme.dart';
+import '../../models/candidate.dart';
+import '../../models/employer_job.dart';
+import '../../providers/employer_provider.dart';
+
+/// The ATS: candidates for one job, in the three groups the spec requires.
 ///
-/// The functional specification asks for three candidate tables — direct
-/// applicants, Lucky Boss recommendations, and external feeds — and the obvious
-/// phone translation is three tabs. That is the wrong call, and this screen
-/// does not make it.
+/// Spec §14–16 defines them as three tables, and they are three tabs here for
+/// the obvious reason — this is a phone, and a table with ten columns is not
+/// something anyone reads on one. What the spec is really asking for is that
+/// the three groups stay distinct, and they do:
 ///
-/// Tabs bury Recommended. It is the highest-value list on the screen precisely
-/// because the recruiter did not ask for it: these are people who never applied
-/// and who the recruiter will never see unless something puts them in front of
-/// them. Behind a deliberate tap, that list may as well not exist.
-///
-/// So the default view is ALL, in one ledger, with each row carrying its source
-/// openly. The segmented control narrows it when a recruiter wants to work one
-/// source at a time. Nothing is hidden by default; nothing loses its provenance.
+/// * **Applied** — came to you. Contact details are visible from the start;
+///   charging a credit for a contact the candidate volunteered is indefensible.
+/// * **Recommended** — in the Lucky Boss database and a good fit, but they have
+///   not applied. A contact credit reveals their details.
+/// * **External** — from a partner feed or an import, and the source is always
+///   named. Spec §16: do not hide where a candidate came from.
 class AtsCandidatesTab extends StatefulWidget {
-  const AtsCandidatesTab({super.key});
+  /// Opens straight onto a job when the recruiter arrived from the jobs list.
+  final String? initialJobId;
+
+  const AtsCandidatesTab({super.key, this.initialJobId});
 
   @override
   State<AtsCandidatesTab> createState() => _AtsCandidatesTabState();
 }
 
-class _AtsCandidatesTabState extends State<AtsCandidatesTab> {
+class _AtsCandidatesTabState extends State<AtsCandidatesTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   String? _jobId;
-  CandidateSource? _filter; // null == All
-  bool _archivedExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _jobId = widget.initialJobId;
+  }
+
+  @override
+  void didUpdateWidget(covariant AtsCandidatesTab old) {
+    super.didUpdateWidget(old);
+    if (widget.initialJobId != null &&
+        widget.initialJobId != old.initialJobId) {
+      setState(() => _jobId = widget.initialJobId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,745 +62,957 @@ class _AtsCandidatesTabState extends State<AtsCandidatesTab> {
     final jobs = provider.jobs;
 
     if (jobs.isEmpty) {
-      return const SafeArea(
-        child: LedgerEmptyState(
-          headline: 'No vacancies yet',
-          explanation:
-              'Candidates appear here once you publish a job. Post a vacancy to start '
-              'receiving applicants and recommendations.',
+      return Scaffold(
+        backgroundColor: AppTheme.paperOf(context),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Post a job and the candidates who match it appear here.',
+              textAlign: TextAlign.center,
+              style: AppTheme.sansRegular(
+                fontSize: 14,
+                color: AppTheme.inkMutedOf(context),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    final jobId = _jobId ?? jobs.first.id;
-    final job = jobs.firstWhere((j) => j.id == jobId, orElse: () => jobs.first);
-    final candidates = provider.candidatesFor(job.id, source: _filter);
-    final archived = provider.archivedFor(job.id);
+    final job = provider.jobById(_jobId ?? '') ?? jobs.first;
 
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        children: [
-          _Header(job: job, jobs: jobs, onJobChanged: (id) => setState(() => _jobId = id)),
-          const BrandRule(),
-          _SourceFilter(
-            active: _filter,
-            counts: {
-              null: provider.countFor(job.id),
-              CandidateSource.applied: provider.countFor(job.id, source: CandidateSource.applied),
-              CandidateSource.recommended:
-                  provider.countFor(job.id, source: CandidateSource.recommended),
-              CandidateSource.external: provider.countFor(job.id, source: CandidateSource.external),
-            },
-            onChanged: (s) => setState(() => _filter = s),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: candidates.isEmpty
-                ? _emptyFor(_filter)
-                : ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: candidates.length + 1,
-                    separatorBuilder: (_, i) => const Divider(height: 1),
-                    itemBuilder: (context, i) {
-                      if (i == candidates.length) {
-                        return _ArchivedSection(
-                          archived: archived,
-                          expanded: _archivedExpanded,
-                          onToggle: () => setState(() => _archivedExpanded = !_archivedExpanded),
-                          onRestore: (id) => provider.restoreCandidate(id),
-                        );
-                      }
-                      return _CandidateRow(candidate: candidates[i]);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Three sources means three different kinds of nothing. "No candidates" is
-  /// useless in all three cases — a recruiter needs to know whether to wait,
-  /// to fix their job description, or to turn a feature on.
-  Widget _emptyFor(CandidateSource? source) {
-    switch (source) {
-      case CandidateSource.applied:
-        return const LedgerEmptyState(
-          headline: 'Nobody has applied yet',
-          explanation:
-              'This vacancy is live but has no direct applications. Promoting it or widening '
-              'the required skills usually helps.',
-        );
-      case CandidateSource.recommended:
-        return const LedgerEmptyState(
-          headline: 'No recommendations yet',
-          explanation:
-              'Lucky Boss matches candidates from its database against your requirements. '
-              'Adding required skills and an experience band to this vacancy improves matching.',
-        );
-      case CandidateSource.external:
-        return const LedgerEmptyState(
-          headline: 'No external candidates',
-          explanation:
-              'External sourcing is either turned off for your plan, or no partner feed matched '
-              'this vacancy. Every external record always shows where it came from.',
-        );
-      case null:
-        return const LedgerEmptyState(
-          headline: 'No candidates on this vacancy',
-          explanation:
-              'Applications, recommendations and external records will all appear here as '
-              'they arrive.',
-        );
-    }
-  }
-}
-
-// =============================================================================
-// HEADER — the job, and what this screen is costing.
-// =============================================================================
-
-class _Header extends StatelessWidget {
-  final EmployerJobModel job;
-  final List<EmployerJobModel> jobs;
-  final ValueChanged<String> onJobChanged;
-
-  const _Header({required this.job, required this.jobs, required this.onJobChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<EmployerProvider>();
-    final days = DateTime.now().difference(job.postedDate).inDays;
-
-    return Container(
-      color: AppTheme.paper,
-      padding: const EdgeInsets.fromLTRB(18, 10, 8, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              MetaText(job.status == 'published' ? 'Live' : job.status,
-                  color: job.status == 'published' ? AppTheme.signalPositive : AppTheme.inkFaint),
-              const SizedBox(width: 8),
-              MetaText('Posted ${days}d ago'),
-              const Spacer(),
-              AiEntryPoint(
-                availability: provider.aiAvailability,
-                compact: true,
-                onTap: () => _openAi(context),
+    return Scaffold(
+      backgroundColor: AppTheme.paperOf(context),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _header(provider, job, jobs),
+            TabBar(
+              controller: _tabs,
+              labelColor: AppTheme.inkOf(context),
+              unselectedLabelColor: AppTheme.inkFaintOf(context),
+              indicatorColor: AppTheme.signalSource,
+              labelStyle: AppTheme.sansBold(
+                fontSize: 12.5,
+                color: AppTheme.inkOf(context),
               ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          // The job selector is a text affordance, not a boxed dropdown — the
-          // title stays the biggest thing on the screen.
-          InkWell(
-            onTap: jobs.length < 2 ? null : () => _pickJob(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusChip),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Flexible(child: Text(job.title, style: AppTheme.screenTitle())),
-                  if (jobs.length > 1) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 19, color: AppTheme.inkFaint),
+              tabs: [
+                for (final source in CandidateSource.values)
+                  Tab(
+                    text:
+                        '${_tabLabel(source)} '
+                        '(${provider.countFor(job.id, source: source)})',
+                  ),
+              ],
+            ),
+            Expanded(
+              // Grouped for the same reason as the bottom navigation: the
+              // notes box inside a candidate card is a text field, and Enter
+              // there must not walk focus up into these tabs.
+              child: FocusTraversalGroup(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [
+                    for (final source in CandidateSource.values)
+                      _CandidateList(job: job, source: source),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              CreditMeter(
-                label: 'Contact',
-                used: provider.contactCreditsUsed,
-                total: provider.contactCreditsTotal,
-              ),
-              Container(
-                width: AppTheme.hairline,
-                height: 12,
-                color: AppTheme.rule,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              CreditMeter(
-                label: 'AI',
-                used: provider.aiCreditsUsed,
-                total: provider.aiCreditsTotal,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _pickJob(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 16),
-            const MetaText('Choose a vacancy'),
-            const SizedBox(height: 10),
-            ...jobs.map((j) => Material(
-                  color: Colors.transparent,
-                  child: ListTile(
-                    title: Text(j.title, style: AppTheme.body(color: AppTheme.ink, weight: FontWeight.w600)),
-                    subtitle: Text('${j.location} · ${j.applicantsCount} candidates',
-                        style: AppTheme.small()),
-                    selected: j.id == job.id,
-                    onTap: () {
-                      onJobChanged(j.id);
-                      Navigator.pop(context);
-                    },
-                  ),
-                )),
-            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
 
-  void _openAi(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Lucky AI is not wired to the backend yet.')),
-    );
-  }
-}
+  String _tabLabel(CandidateSource source) => switch (source) {
+    CandidateSource.applied => 'Applied',
+    CandidateSource.recommended => 'Recommended',
+    CandidateSource.external => 'External',
+  };
 
-// =============================================================================
-// SOURCE FILTER — All first, deliberately.
-// =============================================================================
-
-class _SourceFilter extends StatelessWidget {
-  final CandidateSource? active;
-  final Map<CandidateSource?, int> counts;
-  final ValueChanged<CandidateSource?> onChanged;
-
-  const _SourceFilter({required this.active, required this.counts, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final options = <CandidateSource?>[
-      null,
-      CandidateSource.applied,
-      CandidateSource.recommended,
-      CandidateSource.external,
-    ];
-
-    return Container(
-      color: AppTheme.paper,
-      height: 46,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        itemCount: options.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final option = options[i];
-          final selected = option == active;
-          final label = option?.label ?? 'All';
-          final count = counts[option] ?? 0;
-
-          return InkWell(
-            onTap: () => onChanged(option),
-            borderRadius: BorderRadius.circular(AppTheme.radiusChip),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? AppTheme.ink : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppTheme.radiusChip),
-                border: Border.all(
-                  color: selected ? AppTheme.ink : AppTheme.rule,
-                  width: AppTheme.hairline,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MetaText(label, color: selected ? AppTheme.surface : AppTheme.inkMuted, size: 10),
-                  const SizedBox(width: 5),
-                  Text('$count',
-                      style: AppTheme.meta(
-                        color: selected ? AppTheme.surface : AppTheme.inkFaint,
-                        size: 10,
-                        weight: FontWeight.w700,
-                      )),
-                ],
-              ),
+  Widget _header(
+    EmployerProvider provider,
+    EmployerJobModel job,
+    List<EmployerJobModel> jobs,
+  ) => Container(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+    color: Theme.of(context).cardColor,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Candidates',
+          style: AppTheme.serifTitle(
+            fontSize: 23,
+            color: AppTheme.inkOf(context),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Which vacancy is being staffed, switchable in place. A recruiter
+        // hiring for four sites moves between them constantly.
+        InkWell(
+          onTap: () => _pickJob(jobs),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceOf(context),
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// CANDIDATE ROW — a ruled row, not a card.
-//
-// The name is the only serif on the screen. That single decision is what makes
-// a list of records read as a list of people, which is what a recruiter is
-// actually scanning for.
-// =============================================================================
-
-class _CandidateRow extends StatelessWidget {
-  final ApplicantModel candidate;
-
-  const _CandidateRow({required this.candidate});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.read<EmployerProvider>();
-
-    return InkWell(
-      onTap: () => _openActions(context, provider),
-      child: Container(
-        color: AppTheme.surface,
-        padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(candidate.candidateName, style: AppTheme.personName()),
-                      const SizedBox(height: 2),
-                      if (candidate.headline.isNotEmpty)
-                        Text(candidate.headline,
-                            style: AppTheme.small(), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          SourceBadge(source: candidate.source, providerName: candidate.sourceName),
-                          const SizedBox(width: 10),
-                          Flexible(
-                            child: MetaText(
-                              '${candidate.experience} · ${candidate.location}',
-                              size: 9,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        job.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.sansBold(
+                          fontSize: 14,
+                          color: AppTheme.inkOf(context),
+                        ),
+                      ),
+                      Text(
+                        job.location,
+                        style: AppTheme.sansRegular(
+                          fontSize: 12,
+                          color: AppTheme.inkMutedOf(context),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                MatchCell(
-                  score: candidate.aiMatchScore,
-                  onExplain: () => _explainMatch(context),
-                ),
-                IconButton(
-                  onPressed: () => _openActions(context, provider),
-                  icon: const Icon(Icons.more_horiz, size: 19, color: AppTheme.inkFaint),
-                  tooltip: 'Actions',
-                ),
+                if (jobs.length > 1)
+                  Icon(
+                    Icons.unfold_more,
+                    size: 18,
+                    color: AppTheme.inkMutedOf(context),
+                  ),
               ],
             ),
-            if (candidate.skills.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 5,
-                runSpacing: 5,
-                children: [
-                  ...candidate.skills.take(3).map((s) => _SkillChip(s)),
-                  if (candidate.skills.length > 3)
-                    _SkillChip('+${candidate.skills.length - 3}', faint: true),
-                ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Icon(
+              Icons.contact_phone_outlined,
+              size: 14,
+              color: AppTheme.inkFaintOf(context),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${provider.contactCreditsRemaining} contact credits left',
+              style: AppTheme.sansMedium(
+                fontSize: 12,
+                color: AppTheme.inkMutedOf(context),
               ),
-            ],
-            const SizedBox(height: 11),
-            Row(
-              children: [
-                StagePill(candidate.status),
-                const Spacer(),
-                ContactActions(
-                  revealed: candidate.contactRevealed,
-                  creditCost: 1,
-                  onCall: () => _notImplemented(context, 'Dialer'),
-                  onEmail: () => _notImplemented(context, 'Email composer'),
-                  onWhatsApp: () => _notImplemented(context, 'WhatsApp'),
-                  onReveal: () => _reveal(context, provider),
-                ),
-              ],
             ),
-            if (candidate.contactRevealed && candidate.candidateEmail != null) ...[
-              const SizedBox(height: 4),
-              MetaText('${candidate.candidatePhone}  ·  ${candidate.candidateEmail}', size: 9),
-            ],
           ],
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 
-  Future<void> _reveal(BuildContext context, EmployerProvider provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => RevealContactDialog(
-        candidateName: candidate.candidateName,
-        remaining: provider.contactCreditsRemaining - 1,
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    final ok = provider.revealContact(candidate.id);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No contact credits remaining. Upgrade your plan to reveal more.'),
-        ),
-      );
-    }
-  }
-
-  void _explainMatch(BuildContext context) {
-    showModalBottomSheet(
+  void _pickJob(List<EmployerJobModel> jobs) {
+    if (jobs.length < 2) return;
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => MatchBreakdownSheet(
-        candidateName: candidate.candidateName,
-        score: candidate.aiMatchScore,
-        // TODO: these come from the server once candidate_matches is populated.
-        // The weights are the spec's rule-based fallback: skills 35, experience
-        // 20, category 10, education 10, location 10, salary 5, availability 5.
-        factors: const {
-          'Skills': 92,
-          'Experience': 88,
-          'Education': 74,
-          'Location': 100,
-          'Salary': 70,
-          'Availability': 85,
-        },
-        reasoning: candidate.aiMatchScore == null
-            ? null
-            : 'Matches 4 of 5 required skills and the experience band. '
-                'Salary expectation sits above the posted range.',
-      ),
-    );
-  }
-
-  void _openActions(BuildContext context, EmployerProvider provider) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
-      ),
-      builder: (sheetContext) => _ActionsSheet(candidate: candidate, provider: provider),
-    );
-  }
-
-  void _notImplemented(BuildContext context, String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what is not wired up yet.')),
-    );
-  }
-}
-
-class _SkillChip extends StatelessWidget {
-  final String label;
-  final bool faint;
-
-  const _SkillChip(this.label, {this.faint = false});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      builder: (ctx) => Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusChip),
-          border: Border.all(color: AppTheme.rule, width: AppTheme.hairline),
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Text(label,
-            style: AppTheme.small(color: faint ? AppTheme.inkFaint : AppTheme.inkMuted)
-                .copyWith(fontSize: 11)),
-      );
-}
-
-// =============================================================================
-// ACTIONS SHEET
-// =============================================================================
-
-class _ActionsSheet extends StatelessWidget {
-  final ApplicantModel candidate;
-  final EmployerProvider provider;
-
-  const _ActionsSheet({required this.candidate, required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final aiLive = provider.aiAvailability == AiAvailability.live;
-
-    return SafeArea(
-      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 32,
-                height: 3,
-                decoration:
-                    BoxDecoration(color: AppTheme.rule, borderRadius: BorderRadius.circular(2)),
+            Text(
+              'Which job?',
+              style: AppTheme.sansBold(
+                fontSize: 16,
+                color: AppTheme.inkOf(context),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(candidate.candidateName, style: AppTheme.personName(size: 19)),
-                  const SizedBox(height: 3),
-                  SourceBadge(source: candidate.source, providerName: candidate.sourceName),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            _action(context, Icons.person_outline, 'View profile'),
-            _action(context, Icons.description_outlined, 'View resume'),
-            _action(context, Icons.note_add_outlined, 'Add private note'),
-            const Divider(height: 1),
-            _action(context, Icons.bookmark_border, 'Shortlist',
-                onTap: () => provider.updateApplicantStatus(candidate.id, 'Shortlisted')),
-            _action(context, Icons.event_outlined, 'Schedule interview'),
-            _action(context, Icons.swap_horiz, 'Change status',
-                onTap: () => _changeStatus(context)),
-            const Divider(height: 1),
-            // AI-backed actions are locked visibly, with the reason, rather than
-            // hidden — hiding them loses both the explanation and the upgrade.
-            if (aiLive) ...[
-              _action(context, Icons.mail_outline, 'Draft email with AI'),
-              _action(context, Icons.article_outlined, 'Generate offer letter'),
-            ] else ...[
-              LockedActionTile(
-                icon: Icons.mail_outline,
-                label: 'Draft email with AI',
-                onUpgrade: () => Navigator.pop(context),
-              ),
-              LockedActionTile(
-                icon: Icons.article_outlined,
-                label: 'Generate offer letter',
-                onUpgrade: () => Navigator.pop(context),
-              ),
-            ],
-            const Divider(height: 1),
-            _action(context, Icons.inventory_2_outlined, 'Archive candidate',
-                destructive: true, onTap: () => _archive(context)),
             const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _action(BuildContext context, IconData icon, String label,
-          {VoidCallback? onTap, bool destructive = false}) =>
-      Material(
-        color: Colors.transparent,
-        child: ListTile(
-          leading: Icon(icon,
-              size: 19, color: destructive ? AppTheme.signalClosed : AppTheme.inkMuted),
-          title: Text(label,
-              style: AppTheme.body(
-                color: destructive ? AppTheme.signalClosed : AppTheme.ink,
-                weight: FontWeight.w500,
-              )),
-          onTap: () {
-            Navigator.pop(context);
-            if (onTap != null) {
-              onTap();
-            } else {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('$label is not wired up yet.')));
-            }
-          },
-        ),
-      );
-
-  void _changeStatus(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
-      ),
-      builder: (_) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 18),
-              const MetaText('Change status'),
-              const SizedBox(height: 10),
-              // All 17 statuses the spec defines. Six colours across them; the
-              // word carries the precision.
-              ...CandidateStageStyle.allStatuses.map((s) => Material(
-                    color: Colors.transparent,
-                    child: ListTile(
-                      dense: true,
-                      title: Row(children: [StagePill(s)]),
-                      selected: s == candidate.status,
-                      onTap: () {
-                        provider.updateApplicantStatus(candidate.id, s);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  )),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _archive(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
-      ),
-      builder: (_) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 18),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: MetaText('Why are you archiving?'),
-              ),
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Text(
-                  'This removes ${candidate.candidateName} from the active pipeline for this '
-                  'vacancy only. They stay in the Lucky Boss database and can be restored.',
-                  style: AppTheme.body(),
+            for (final j in jobs)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  j.title,
+                  style: AppTheme.sansMedium(
+                    fontSize: 14.5,
+                    color: AppTheme.inkOf(context),
+                  ),
                 ),
+                subtitle: Text(
+                  j.location,
+                  style: AppTheme.sansRegular(
+                    fontSize: 12,
+                    color: AppTheme.inkMutedOf(context),
+                  ),
+                ),
+                trailing: j.id == _jobId
+                    ? const Icon(Icons.check, color: AppTheme.signalPositive)
+                    : null,
+                onTap: () {
+                  setState(() => _jobId = j.id);
+                  Navigator.pop(ctx);
+                },
               ),
-              const Divider(height: 1),
-              ...ArchiveReasons.all.map((r) => Material(
-                    color: Colors.transparent,
-                    child: ListTile(
-                      dense: true,
-                      title: Text(r, style: AppTheme.body(color: AppTheme.ink)),
-                      onTap: () {
-                        provider.archiveCandidate(candidate.id, r);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  )),
-              const SizedBox(height: 12),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-// =============================================================================
-// ARCHIVED — collapsed, never deleted.
-//
-// Archiving is scoped to this company and this job. The candidate remains in
-// the Lucky Boss database, and the record of who archived them and why stays
-// attached, because a pipeline nobody can audit is a pipeline nobody can trust.
-// =============================================================================
+class _CandidateList extends StatelessWidget {
+  final EmployerJobModel job;
+  final CandidateSource source;
 
-class _ArchivedSection extends StatelessWidget {
-  final List<ApplicantModel> archived;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final ValueChanged<String> onRestore;
-
-  const _ArchivedSection({
-    required this.archived,
-    required this.expanded,
-    required this.onToggle,
-    required this.onRestore,
-  });
+  const _CandidateList({required this.job, required this.source});
 
   @override
   Widget build(BuildContext context) {
-    if (archived.isEmpty) return const SizedBox(height: 32);
+    final provider = context.watch<EmployerProvider>();
+    final candidates = provider.candidatesFor(job.id, source: source);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Container(
-            color: AppTheme.paper,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                MetaText('Archived — ${archived.length}'),
-                const Spacer(),
-                MetaText(expanded ? 'Hide' : 'Show', color: AppTheme.inkMuted),
-                Icon(expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 17, color: AppTheme.inkFaint),
-              ],
+    if (candidates.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Text(
+            switch (source) {
+              CandidateSource.applied =>
+                'Nobody has applied to this job yet. Recommended candidates are '
+                    'on the next tab.',
+              CandidateSource.recommended =>
+                'No one in the Lucky Boss database matches this job closely '
+                    'enough yet.',
+              CandidateSource.external =>
+                'No partner-sourced candidates for this job.',
+            },
+            textAlign: TextAlign.center,
+            style: AppTheme.sansRegular(
+              fontSize: 13.5,
+              color: AppTheme.inkMutedOf(context),
             ),
           ),
         ),
-        if (expanded)
-          ...archived.map((c) => Container(
-                color: AppTheme.paper,
-                padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
-                child: Row(
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
+      itemCount: candidates.length,
+      itemBuilder: (context, i) =>
+          _CandidateCard(candidate: candidates[i], job: job),
+    );
+  }
+}
+
+class _CandidateCard extends StatelessWidget {
+  final Candidate candidate;
+  final EmployerJobModel job;
+
+  const _CandidateCard({required this.candidate, required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<EmployerProvider>();
+    final match = candidate.matchFor(job);
+    final revealed = candidate.contactRevealed;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(15, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Initials(name: candidate.name),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(c.candidateName,
-                              style: AppTheme.personName(color: AppTheme.inkMuted, size: 15)),
-                          const SizedBox(height: 3),
-                          MetaText(
-                            '${c.archiveReason} · by ${c.archivedBy ?? "—"}',
-                            size: 9,
-                          ),
-                        ],
+                    Text(
+                      candidate.name,
+                      style: AppTheme.sansBold(
+                        fontSize: 15,
+                        color: AppTheme.inkOf(context),
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => onRestore(c.id),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.inkMuted,
-                        textStyle: AppTheme.meta(color: AppTheme.inkMuted, size: 10),
+                    Text(
+                      '${candidate.role}  ·  ${candidate.experienceLabel}',
+                      style: AppTheme.sansRegular(
+                        fontSize: 12.5,
+                        color: AppTheme.inkMutedOf(context),
                       ),
-                      child: const Text('RESTORE'),
                     ),
                   ],
                 ),
-              )),
-        const SizedBox(height: 24),
+              ),
+              _MatchBadge(score: match),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          _fact(context, Icons.place_outlined, candidate.location),
+          if (candidate.certificates.isNotEmpty)
+            _fact(
+              context,
+              Icons.badge_outlined,
+              candidate.certificates.join(', '),
+            ),
+          if (candidate.languages.isNotEmpty)
+            _fact(context, Icons.translate, candidate.languages.join(', ')),
+          if (candidate.workPermitStatus.isNotEmpty)
+            _fact(
+              context,
+              Icons.verified_user_outlined,
+              candidate.workPermitStatus,
+            ),
+          if (candidate.availability.isNotEmpty)
+            _fact(
+              context,
+              Icons.event_available_outlined,
+              'Can start ${candidate.availability}',
+            ),
+
+          if (candidate.source == CandidateSource.external &&
+              candidate.sourceName != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.signalSourceWash,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              // Spec §16: the source field is mandatory on external records.
+              child: Text(
+                'Source: ${candidate.sourceName}',
+                style: AppTheme.sansBold(
+                  fontSize: 10.5,
+                  color: AppTheme.signalSource,
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+          // Spec §17 — quick contact. Tapping a number should get a recruiter
+          // to a call, not to a detail screen.
+          if (revealed)
+            Row(
+              children: [
+                Expanded(
+                  child: _ContactChip(
+                    icon: Icons.phone_outlined,
+                    label: candidate.phone,
+                    onTap: () => _copy(context, candidate.phone, 'Phone'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ContactChip(
+                    icon: Icons.mail_outline,
+                    label: candidate.email,
+                    onTap: () => _copy(context, candidate.email, 'Email'),
+                  ),
+                ),
+              ],
+            )
+          else
+            _RevealBar(
+              candidate: candidate,
+              creditsLeft: provider.contactCreditsRemaining,
+            ),
+
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _StagePill(status: candidate.status),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () =>
+                    _CandidateActions.open(context, candidate, job),
+                icon: const Icon(Icons.more_horiz, size: 18),
+                label: Text(
+                  'Actions',
+                  style: AppTheme.sansBold(
+                    fontSize: 13,
+                    color: AppTheme.royalBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fact(BuildContext context, IconData icon, String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 13, color: AppTheme.inkFaintOf(context)),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTheme.sansMedium(
+              fontSize: 12.5,
+              color: AppTheme.inkMutedOf(context),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  static void _copy(BuildContext context, String value, String what) {
+    Clipboard.setData(ClipboardData(text: value));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$what copied.',
+          style: AppTheme.sansMedium(
+            fontSize: 13,
+            color: AppTheme.onInkOf(context),
+          ),
+        ),
+        backgroundColor: AppTheme.signalPositive,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  final String name;
+
+  const _Initials({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    final initials = parts.isEmpty
+        ? '?'
+        : (parts.length == 1
+              ? parts.first.substring(0, 1)
+              : parts.first.substring(0, 1) + parts.last.substring(0, 1));
+
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.inkOf(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        initials.toUpperCase(),
+        style: AppTheme.sansBold(
+          fontSize: 15,
+          color: AppTheme.onInkOf(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec §25 — the match score, and §26 — why.
+class _MatchBadge extends StatelessWidget {
+  final double score;
+
+  const _MatchBadge({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = score.round();
+    final color = value >= 75
+        ? AppTheme.signalPositive
+        : (value >= 50 ? AppTheme.signalAttention : AppTheme.signalClosed);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text('$value%', style: AppTheme.sansBold(fontSize: 17, color: color)),
+        Text(
+          value >= 75 ? 'STRONG' : (value >= 50 ? 'FAIR' : 'WEAK'),
+          style: AppTheme.sansBold(
+            fontSize: 9,
+            color: color,
+          ).copyWith(letterSpacing: 0.5),
+        ),
       ],
     );
+  }
+}
+
+class _ContactChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ContactChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(10),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppTheme.inkOf(context)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.sansMedium(
+                fontSize: 11.5,
+                color: AppTheme.inkOf(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Spec §71–72 — contact details behind a credit, with the cost stated before
+/// it is spent rather than after.
+class _RevealBar extends StatelessWidget {
+  final Candidate candidate;
+  final int creditsLeft;
+
+  const _RevealBar({required this.candidate, required this.creditsLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    final exhausted = creditsLeft <= 0;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lock_outline,
+            size: 15,
+            color: AppTheme.inkFaintOf(context),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  candidate.maskedPhone,
+                  style: AppTheme.sansMedium(
+                    fontSize: 12.5,
+                    color: AppTheme.inkMutedOf(context),
+                  ),
+                ),
+                Text(
+                  exhausted
+                      ? 'No contact credits left'
+                      : 'Uses 1 of $creditsLeft credits',
+                  style: AppTheme.sansRegular(
+                    fontSize: 10.5,
+                    color: exhausted
+                        ? AppTheme.signalClosed
+                        : AppTheme.inkFaintOf(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: exhausted
+                ? null
+                : () => context.read<EmployerProvider>().revealContact(
+                    candidate.id,
+                  ),
+            child: Text(
+              'Reveal',
+              style: AppTheme.sansBold(
+                fontSize: 12.5,
+                color: exhausted
+                    ? AppTheme.inkFaintOf(context)
+                    : AppTheme.royalBlue,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StagePill extends StatelessWidget {
+  final String status;
+
+  const _StagePill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      CandidateStages.hired => AppTheme.signalPositive,
+      CandidateStages.offered => AppTheme.signalProgress,
+      CandidateStages.interview => AppTheme.signalSource,
+      CandidateStages.shortlisted => AppTheme.signalAttention,
+      _ => AppTheme.inkMutedOf(context),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(status, style: AppTheme.sansBold(fontSize: 11, color: color)),
+    );
+  }
+}
+
+/// Spec §18 — the Actions menu.
+///
+/// Only the actions that do something are offered. The spec lists fifteen,
+/// several of which need email, WhatsApp and offer-letter generation that do
+/// not exist yet; putting them on the menu as dead entries would be worse than
+/// leaving them off, because a recruiter would try one mid-conversation with a
+/// candidate.
+class _CandidateActions {
+  static void open(
+    BuildContext context,
+    Candidate candidate,
+    EmployerJobModel job,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ActionSheet(candidate: candidate, job: job),
+    );
+  }
+}
+
+class _ActionSheet extends StatelessWidget {
+  final Candidate candidate;
+  final EmployerJobModel job;
+
+  const _ActionSheet({required this.candidate, required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.read<EmployerProvider>();
+    final reasons = candidate.matchReasons(job);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (context, controller) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              candidate.name,
+              style: AppTheme.serifTitle(
+                fontSize: 22,
+                color: AppTheme.inkOf(context),
+              ),
+            ),
+            Text(
+              '${candidate.role}  ·  ${candidate.location}',
+              style: AppTheme.sansRegular(
+                fontSize: 13,
+                color: AppTheme.inkMutedOf(context),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+            // Spec §26 — the score explained. A percentage a recruiter cannot
+            // interrogate is a number they will stop trusting.
+            Text(
+              'WHY THIS MATCH',
+              style: AppTheme.sansBold(
+                fontSize: 10,
+                color: AppTheme.inkFaintOf(context),
+              ).copyWith(letterSpacing: 0.6),
+            ),
+            const SizedBox(height: 8),
+            for (final reason in reasons)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      reason.startsWith('Missing') ||
+                              reason.startsWith('Currently in') ||
+                              reason.startsWith('Need employer')
+                          ? Icons.remove_circle_outline
+                          : Icons.check_circle_outline,
+                      size: 15,
+                      color:
+                          reason.startsWith('Missing') ||
+                              reason.startsWith('Currently in') ||
+                              reason.startsWith('Need employer')
+                          ? AppTheme.signalAttention
+                          : AppTheme.signalPositive,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        reason,
+                        style: AppTheme.sansMedium(
+                          fontSize: 13,
+                          color: AppTheme.inkOf(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 20),
+            Text(
+              'MOVE TO',
+              style: AppTheme.sansBold(
+                fontSize: 10,
+                color: AppTheme.inkFaintOf(context),
+              ).copyWith(letterSpacing: 0.6),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final stage in CandidateStages.all)
+                  InkWell(
+                    onTap: () {
+                      provider.setCandidateStatus(candidate.id, stage);
+                      Navigator.pop(context);
+                    },
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: candidate.status == stage
+                            ? AppTheme.signalPositiveWash
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: candidate.status == stage
+                              ? AppTheme.signalPositive
+                              : Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Text(
+                        stage,
+                        style: AppTheme.sansMedium(
+                          fontSize: 13,
+                          color: candidate.status == stage
+                              ? AppTheme.signalPositive
+                              : AppTheme.inkOf(context),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 22),
+            _NoteBox(candidateId: candidate.id),
+
+            const SizedBox(height: 18),
+            TextButton.icon(
+              onPressed: () {
+                provider.archiveCandidate(
+                  candidate.id,
+                  'Not suitable for this role',
+                );
+                Navigator.pop(context);
+              },
+              icon: const Icon(
+                Icons.archive_outlined,
+                size: 18,
+                color: AppTheme.signalClosed,
+              ),
+              label: Text(
+                'Archive for this job',
+                style: AppTheme.sansBold(
+                  fontSize: 13.5,
+                  color: AppTheme.signalClosed,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec §75 — private recruiter notes, visible only inside the company.
+class _NoteBox extends StatefulWidget {
+  final String candidateId;
+
+  const _NoteBox({required this.candidateId});
+
+  @override
+  State<_NoteBox> createState() => _NoteBoxState();
+}
+
+class _NoteBoxState extends State<_NoteBox> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<EmployerProvider>();
+    final notes = provider.notesFor(widget.candidateId);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'INTERNAL NOTES',
+          style: AppTheme.sansBold(
+            fontSize: 10,
+            color: AppTheme.inkFaintOf(context),
+          ).copyWith(letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 8),
+        for (final note in notes)
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceOf(context),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              note,
+              style: AppTheme.sansRegular(
+                fontSize: 13,
+                color: AppTheme.inkOf(context),
+              ),
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _add(),
+                style: AppTheme.sansMedium(
+                  fontSize: 13.5,
+                  color: AppTheme.inkOf(context),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Called 20 Aug, free after 30 days',
+                  hintStyle: AppTheme.sansRegular(
+                    fontSize: 13,
+                    color: AppTheme.inkFaintOf(context),
+                  ),
+                  filled: true,
+                  fillColor: AppTheme.surfaceOf(context),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: _controller.text.trim().isEmpty ? null : _add,
+              icon: const Icon(Icons.send, size: 19),
+              color: AppTheme.royalBlue,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _add() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    context.read<EmployerProvider>().addNote(widget.candidateId, text);
+    _controller.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {});
   }
 }

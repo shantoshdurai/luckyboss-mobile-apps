@@ -169,11 +169,15 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
         child: Column(
           children: [
             _searchHeader(),
-            // Filters sit with the query that produced the results, not at the
-            // bottom of the screen away from it — and only appear once there is
-            // a result set to narrow. Before a search they would be filtering
-            // nothing.
-            if (_searched) _filterBar(),
+            // Filters sit with the query that produced the results, not at
+            // the bottom of the screen away from it.
+            //
+            // Shown on the entry view too, not only after a search. Setting a
+            // country or a work mode before searching is a normal thing to
+            // want, and hiding the controls until results exist made the
+            // filters feel like an afterthought rather than part of the
+            // search.
+            _filterBar(),
             Expanded(
               child: _searched ? _resultsView(provider) : _entryView(),
             ),
@@ -232,6 +236,10 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
           CityField(
             controller: _locationController,
             hint: 'City or location',
+            // Suggestions only once there is something to match on. Tapping
+            // this field used to drop eight cities over the whole screen
+            // before a single character had been typed.
+            minChars: 2,
             onSubmitted: (_) => _runSearch(),
             onChanged: (_) => setState(() {}),
           ),
@@ -268,12 +276,38 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
       controller: controller,
       focusNode: focusNode,
       textInputAction: TextInputAction.search,
+      // Rebuilds so the clear button appears and disappears with the text.
+      onChanged: (_) => setState(() {}),
       onSubmitted: (_) => (onSubmitted ?? _runSearch)(),
       style: AppTheme.sansMedium(fontSize: 14.5, color: AppTheme.inkOf(context)),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: AppTheme.sansRegular(fontSize: 14.5, color: AppTheme.inkFaintOf(context)),
         prefixIcon: Icon(icon, size: 19, color: AppTheme.inkFaintOf(context)),
+        // There was no way to empty a field once typed in. Clearing it by
+        // hand on a phone means selecting text in a box the keyboard is
+        // covering.
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                icon: Icon(Icons.close,
+                    size: 17, color: AppTheme.inkFaintOf(context)),
+                tooltip: 'Clear',
+                onPressed: () {
+                  controller.clear();
+                  setState(() {
+                    // Emptying the box means the result set no longer matches
+                    // what is on screen, so drop back to the entry view rather
+                    // than leaving stale results above an empty query.
+                    if (_keywordController.text.trim().isEmpty &&
+                        _locationController.text.trim().isEmpty) {
+                      _searched = false;
+                    }
+                  });
+                },
+              ),
+        suffixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: AppTheme.paperOf(context),
         isDense: true,
@@ -301,18 +335,202 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
   /// The list itself carries no horizontal padding, because JobCard already has
   /// a 16px margin — nesting the two made the cards here render narrower than
   /// the identical cards on home.
+  /// Whether the full category list is expanded under the suggestions.
+  bool _showAllCategories = false;
+
   Widget _gutter(Widget child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: child,
       );
 
+  /// Openers for a candidate whose trade we know: their own job first, then
+  /// the work next to it, then where those jobs are.
+  List<Widget> _suggestionSection() {
+    final profile = context.read<JobSeekerProvider>().profile;
+    final role =
+        profile.roleTitle.isNotEmpty ? profile.roleTitle : profile.currentTitle;
+    final category = AppData.categoryByName(profile.preferredCategory) ??
+        AppData.categoryForRole(role);
+
+    if (category == null) return _categoryBrowse();
+
+    // Their own job at the head of the list — it is the single search they are
+    // most likely to want and it should not need typing.
+    final roles = <String>[
+      if (role.isNotEmpty && category.roleNames.contains(role)) role,
+      ...category.roleNames.where((r) => r != role),
+    ];
+
+    return [
+      _gutter(Row(
+        children: [
+          Icon(category.icon, size: 17, color: AppTheme.signalSource),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Jobs in ${category.name}',
+                style: AppTheme.sansBold(
+                    fontSize: 13.5, color: AppTheme.inkOf(context))),
+          ),
+        ],
+      )),
+      const SizedBox(height: 4),
+      _gutter(Text(
+        role.isEmpty
+            ? 'Tap a job to see what is open.'
+            : 'Your trade first, then the work closest to it.',
+        style: AppTheme.sansRegular(
+            fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
+      )),
+      const SizedBox(height: 12),
+      _gutter(Wrap(
+        spacing: 9,
+        runSpacing: 10,
+        children: [
+          for (final r in roles.take(14))
+            _pill(
+              label: r,
+              highlighted: r == role,
+              onTap: () {
+                // Searches the job title rather than filtering by category —
+                // a Plumber wants plumbing vacancies, not every construction
+                // job in the market.
+                _keywordController.text = r;
+                setState(() => _filters =
+                    _filters.copyWith(categories: {category.name}));
+                _runSearch();
+              },
+            ),
+        ],
+      )),
+      const SizedBox(height: 26),
+      _gutter(InkWell(
+        onTap: () => setState(() => _showAllCategories = !_showAllCategories),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Text(
+                _showAllCategories
+                    ? 'Hide other kinds of work'
+                    : 'Looking for a different kind of work?',
+                style: AppTheme.sansBold(
+                    fontSize: 13, color: AppTheme.royalBlue),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                _showAllCategories
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                size: 18,
+                color: AppTheme.royalBlue,
+              ),
+            ],
+          ),
+        ),
+      )),
+      if (_showAllCategories) ...[
+        const SizedBox(height: 12),
+        ..._categoryBrowse(withHeading: false),
+      ],
+    ];
+  }
+
+  /// The full category list. Still the opener for a candidate whose trade we do
+  /// not know yet, and the expanded state of the link above otherwise.
+  List<Widget> _categoryBrowse({bool withHeading = true}) => [
+        if (withHeading) ...[
+          _gutter(Text('Browse by category',
+              style: AppTheme.sansBold(
+                  fontSize: 13.5, color: AppTheme.inkOf(context)))),
+          const SizedBox(height: 12),
+        ],
+        _gutter(Wrap(
+          spacing: 9,
+          runSpacing: 10,
+          children: [
+            for (final category in AppData.workCategories)
+              _pill(
+                label: category.name,
+                icon: category.icon,
+                onTap: () {
+                  _keywordController.clear();
+                  setState(() => _filters =
+                      _filters.copyWith(categories: {category.name}));
+                  _runSearch();
+                },
+              ),
+          ],
+        )),
+      ];
+
+  Widget _pill({
+    required String label,
+    required VoidCallback onTap,
+    IconData? icon,
+    bool highlighted = false,
+  }) =>
+      InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            color: highlighted
+                ? AppTheme.signalSource.withValues(alpha: 0.09)
+                : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: highlighted
+                  ? AppTheme.signalSource
+                  : Theme.of(context).dividerColor,
+              width: highlighted ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: AppTheme.inkMutedOf(context)),
+                const SizedBox(width: 7),
+              ],
+              Text(label,
+                  style: highlighted
+                      ? AppTheme.sansBold(
+                          fontSize: 13.5, color: AppTheme.signalSource)
+                      : AppTheme.sansMedium(
+                          fontSize: 13.5, color: AppTheme.inkOf(context))),
+            ],
+          ),
+        ),
+      );
+
   Widget _entryView() {
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 30),
       children: [
         if (_recentSearches.isNotEmpty) ...[
-          _gutter(Text('Recent searches',
-              style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.inkOf(context)))),
+          _gutter(Row(
+            children: [
+              Expanded(
+                child: Text('Recent searches',
+                    style: AppTheme.sansBold(
+                        fontSize: 13.5, color: AppTheme.inkOf(context))),
+              ),
+              InkWell(
+                onTap: () => setState(_recentSearches.clear),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 3),
+                  child: Text('Clear all',
+                      style: AppTheme.sansBold(
+                          fontSize: 12.5, color: AppTheme.royalBlue)),
+                ),
+              ),
+            ],
+          )),
           const SizedBox(height: 10),
           ..._recentSearches.map((s) => InkWell(
                 onTap: () {
@@ -322,15 +540,24 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
                   _runSearch();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.history, size: 18, color: AppTheme.inkFaintOf(context)),
+                      Icon(Icons.history,
+                          size: 18, color: AppTheme.inkFaintOf(context)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(s,
                             style: AppTheme.sansMedium(
                                 fontSize: 14, color: AppTheme.inkOf(context))),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close,
+                            size: 15, color: AppTheme.inkFaintOf(context)),
+                        tooltip: 'Remove',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () =>
+                            setState(() => _recentSearches.remove(s)),
                       ),
                     ],
                   ),
@@ -338,37 +565,17 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
               )),
           const SizedBox(height: 26),
         ],
-        _gutter(Text('Browse by category',
-            style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.inkOf(context)))),
-        const SizedBox(height: 12),
-        _gutter(Wrap(
-          spacing: 9,
-          runSpacing: 10,
-          children: AppData.categories
-              .where((c) => c != 'All Roles')
-              .map((c) => InkWell(
-                    onTap: () {
-                      setState(() => _filters =
-                          _filters.copyWith(categories: {c}));
-                      _runSearch();
-                    },
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 15, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(24),
-                        border:
-                            Border.all(color: Theme.of(context).dividerColor),
-                      ),
-                      child: Text(c,
-                          style: AppTheme.sansMedium(
-                              fontSize: 13.5, color: AppTheme.inkOf(context))),
-                    ),
-                  ))
-              .toList(),
-        )),
+        // What to offer here depends on whether we already know the candidate's
+        // trade.
+        //
+        // The screen used to open with "Browse by category" — Construction,
+        // Manufacturing, IT & Software — put to somebody who had chosen
+        // Construction two screens earlier during onboarding. Asking again is
+        // not neutral: it tells the candidate the app did not keep what they
+        // said. When we know the trade, the useful thing is the jobs next to
+        // theirs; the full category list moves behind a link for the minority
+        // who genuinely want to look elsewhere.
+        ..._suggestionSection(),
         const SizedBox(height: 26),
         _gutter(Text('Browse by location',
             style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.inkOf(context)))),

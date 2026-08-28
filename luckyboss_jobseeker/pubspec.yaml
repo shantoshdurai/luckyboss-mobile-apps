@@ -45,6 +45,12 @@ dependencies:
   # Resume upload (PDF/DOC/DOCX). image_picker cannot select documents.
   file_picker: ^8.1.2
 
+  # DOM access for the web file chooser. Used only by
+  # lib/services/platform_file_picker/file_picker_web.dart, where an
+  # <input type="file"> replaces two plugins that both failed silently in a
+  # browser.
+  web: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -69,6 +75,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/data/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

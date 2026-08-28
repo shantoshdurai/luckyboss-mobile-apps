@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/config/api_config.dart';
+import '../core/constants/app_data.dart';
+import '../models/job_model.dart';
+import 'job_catalog_service.dart';
 
 /// LUCKY AI COPILOT
 ///
@@ -60,56 +63,99 @@ class GeminiCopilotService {
         if (reply != null && reply.isNotEmpty) {
           return CopilotResult(reply: reply, isLive: true);
         }
-        return _unavailable('The assistant returned an empty response.');
       }
 
-      if (response.statusCode == 429) {
-        return _unavailable('The AI service has hit its rate limit. Try again shortly.');
-      }
-      return _unavailable('The assistant is not responding (${response.statusCode}).');
+      // Every non-200, and an empty 200, falls through to the catalogue the
+      // same way a dropped connection does.
+      //
+      // They used to be treated differently, and the difference was invisible
+      // and wrong: a server answering 500 left the candidate with a bare
+      // "unavailable" while a server that was simply unreachable got a useful
+      // answer from the bundled vacancies. From where the candidate sits those
+      // are the same event.
+      return _fromCatalogue(message);
     } catch (_) {
-      // Intelligent offline copilot reply based on query
-      final msg = message.toLowerCase();
-      if (msg.contains('salary') || msg.contains('pay') || msg.contains('rate')) {
-        return const CopilotResult(
-          reply: "Salary Benchmark Overview:\n\n"
-              "• Singapore (SGD): S\$3,500 - S\$5,500/mo (Logistics/Operations), S\$6,500 - S\$10,000/mo (Tech & Engineering)\n"
-              "• Malaysia (MYR): RM 4,500 - RM 7,500/mo (Mid-level), RM 8,000 - RM 14,000/mo (Senior/Lead)\n"
-              "• India (INR): ₹8 LPA - ₹15 LPA (Mid-level), ₹18 LPA - ₹32 LPA (Lead/Architect)\n\n"
-              "Tip: Adding verified skill certifications boosts your profile visibility to corporate recruiters.",
-          isLive: true,
-        );
+      return _fromCatalogue(message);
+    }
+  }
+
+  /// Answers from the bundled job catalogue when the server cannot be reached.
+  ///
+  /// This replaces three blocks of hardcoded salary bands — "Singapore SGD
+  /// 3,500 – 5,500", "India INR 8 LPA – 15 LPA" — that were returned with
+  /// `isLive: true`, so invented figures reached the candidate looking exactly
+  /// like a model's answer. They sat directly below a comment promising "no
+  /// fabricated fallback".
+  ///
+  /// That is not a cosmetic problem. A candidate deciding whether to leave a
+  /// job, or what to ask an employer for, was being given numbers nobody had
+  /// checked, dressed as advice. Everything below is either counted from the
+  /// 168 real vacancies in `assets/data/seed_jobs.json` or is not said at all,
+  /// and the result is marked `isLive: false` so the UI renders it as what it
+  /// is rather than as an answer.
+  static Future<CopilotResult> _fromCatalogue(String message) async {
+    final query = message.toLowerCase();
+    final jobs = await JobCatalogService.loadSeed();
+    if (jobs.isEmpty) {
+      return _unavailable('No connection, and no local catalogue to read.');
+    }
+
+    // The category being asked about, matched against the real taxonomy.
+    WorkCategory? category;
+    for (final c in AppData.workCategories) {
+      if (query.contains(c.name.toLowerCase().split(' ').first)) {
+        category = c;
+        break;
       }
-      if (msg.contains('tech') || msg.contains('flutter') || msg.contains('developer') || msg.contains('software')) {
-        return const CopilotResult(
-          reply: "Top Software & Mobile Openings:\n\n"
-              "• Lead AI & Mobile Flutter Engineer: ₹1,20,000 - ₹1,80,000/mo (Bengaluru, Hybrid)\n"
-              "• Cloud DevOps & Platform Engineer: ₹85,000 - ₹1,40,000/mo (Hyderabad, Remote)\n"
-              "• Full Stack Engineer: S\$6,000 - S\$9,000/mo (Singapore, One-North)\n\n"
-              "Make sure your profile has Flutter, Dart, Firebase, and REST APIs listed to achieve high compatibility match scores.",
-          isLive: true,
-        );
+    }
+    // Or the trade, which is how a field candidate would ask.
+    String? role;
+    for (final title in AppData.allRoleTitles) {
+      final lower = title.toLowerCase();
+      if (query.contains(lower) || query.contains('${lower}s')) {
+        role = title;
+        break;
       }
-      if (msg.contains('warehouse') || msg.contains('logistics') || msg.contains('supply')) {
-        return const CopilotResult(
-          reply: "Logistics & Supply Chain Vacancies:\n\n"
-              "• Senior Warehouse Operations Lead: S\$3,800 - S\$5,200/mo (Singapore, Jurong East)\n"
-              "• Supply Chain Coordinator: RM 4,500 - RM 6,800/mo (Johor Bahru, Malaysia)\n"
-              "• Inventory Logistics Specialist: ₹45,000 - ₹75,000/mo (Chennai, India)\n\n"
-              "Holding valid safety compliance or WMS certifications increases your application callback rate significantly.",
-          isLive: true,
-        );
-      }
-      return const CopilotResult(
-        reply: "Hello! I am Lucky AI, your intelligent career copilot.\n\n"
-            "I analyze verified corporate postings across Singapore, Malaysia, and India to help you benchmark salaries and prepare for interviews.\n\n"
-            "Try asking:\n"
-            "• 'What are the highest paying tech jobs in Singapore?'\n"
-            "• 'What skills do I need for warehouse supervisor roles?'\n"
-            "• 'How do I boost my profile compatibility score?'",
-        isLive: true,
+    }
+
+    final matching = jobs.where((j) =>
+        (role != null && j.role.toLowerCase() == role.toLowerCase()) ||
+        (role == null && category != null && j.category == category.name));
+
+    if (matching.isNotEmpty) {
+      final sample = matching.take(4);
+      final subject = role ?? category!.name;
+      return CopilotResult(
+        reply: 'I cannot reach Lucky AI, so this is from the vacancies already '
+            'on your phone rather than a live answer.\n\n'
+            '$subject openings (${matching.length} in total):\n'
+            '${sample.map((j) => '• ${j.title} — ${j.currency} ${j.minSalary}'
+                '${j.maxSalary.isEmpty ? '' : ' – ${j.maxSalary}'} '
+                '${j.payPeriod.toLowerCase().replaceAll('per ', 'a ')} '
+                '(${j.location})').join('\n')}'
+            '${_licenceNote(matching)}',
+        isLive: false,
+        unavailableReason: 'Answered from the bundled catalogue, not the model.',
       );
     }
+
+    return _unavailable(
+        'No connection, and nothing in your saved jobs matches that.');
+  }
+
+  /// What the matching vacancies actually require, when they agree on it.
+  /// Genuinely useful and entirely counted — a candidate learns that four of
+  /// four postings want the same ticket.
+  static String _licenceNote(Iterable<JobModel> matching) {
+    final counts = <String, int>{};
+    for (final job in matching) {
+      for (final cert in job.requiredCertificates) {
+        counts[cert] = (counts[cert] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return '';
+    final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    return '\n\n${top.value} of these ask for ${top.key}.';
   }
 
   /// No fabricated fallback. The seeker is told the assistant is unavailable and

@@ -168,6 +168,193 @@ class AppTheme {
       _archivo(size: 13, weight: FontWeight.w600, color: color, letterSpacing: 0.1);
 
 
+  // ---------------------------------------------------------------------------
+  // COMPATIBILITY SHIM — temporary, job seeker app only.
+  //
+  // The seeker screens predate Ledger and call the old navy/emerald tokens and
+  // the old sans*/serifTitle helpers at ~141 sites. Rather than leave the app
+  // broken, those names are remapped onto Ledger here so every screen compiles
+  // and picks up the new ink, paper and type immediately.
+  //
+  // Note what `serifTitle` maps to: Archivo, NOT the serif. In Ledger the serif
+  // is reserved for people's names, and screen titles are set in Archivo. So
+  // this mapping enforces that rule across all six old call sites for free.
+  //
+  // These are not part of the design system. Delete each one as its screens are
+  // reworked onto AppTheme.screenTitle / sectionTitle / body / small / meta.
+  // ---------------------------------------------------------------------------
+
+  @Deprecated('Ledger has no navy. Use AppTheme.ink.')
+  static const Color primaryNavy = ink;
+  @Deprecated('Green is a data signal, not furniture. Use AppTheme.signalPositive.')
+  static const Color emerald = signalPositive;
+  @Deprecated('Green is a data signal, not furniture. Use AppTheme.signalPositive.')
+  static const Color emeraldDark = signalPositive;
+  @Deprecated('Blue is a data signal. Use AppTheme.signalSource.')
+  static const Color royalBlue = signalSource;
+  @Deprecated('Use AppTheme.signalAttention.')
+  static const Color amber = signalAttention;
+  @Deprecated('Use AppTheme.paper.')
+  static const Color bgPaper = paper;
+  @Deprecated('Use AppTheme.rule.')
+  static const Color borderLight = rule;
+  @Deprecated('Use AppTheme.rule.')
+  static const Color borderMedium = rule;
+  @Deprecated('Use AppTheme.ink.')
+  static const Color textPrimary = ink;
+  @Deprecated('Use AppTheme.inkMuted.')
+  static const Color textSecondary = inkMuted;
+  @Deprecated('Use AppTheme.inkFaint.')
+  static const Color textMuted = inkFaint;
+
+  @Deprecated('Use AppTheme.screenTitle() — Ledger sets titles in Archivo, not a serif.')
+  static TextStyle serifTitle({
+    double fontSize = 24,
+    Color color = ink,
+    FontWeight fontWeight = FontWeight.w700,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      _archivo(
+        size: fontSize,
+        weight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing ?? -0.3,
+        height: height ?? 1.15,
+      );
+
+  @Deprecated('Use AppTheme.sectionTitle() or AppTheme.body(weight: FontWeight.w700).')
+  static TextStyle sansBold({
+    double fontSize = 14,
+    Color color = ink,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      _archivo(
+        size: fontSize,
+        weight: FontWeight.w700,
+        color: color,
+        letterSpacing: letterSpacing ?? 0,
+        height: height,
+      );
+
+  @Deprecated('Use AppTheme.body(weight: FontWeight.w600).')
+  static TextStyle sansSemiBold({
+    double fontSize = 14,
+    Color color = ink,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      _archivo(
+        size: fontSize,
+        weight: FontWeight.w600,
+        color: color,
+        letterSpacing: letterSpacing ?? 0,
+        height: height,
+      );
+
+  @Deprecated('Use AppTheme.body(weight: FontWeight.w500).')
+  static TextStyle sansMedium({
+    double fontSize = 13,
+    Color color = inkMuted,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      _archivo(
+        size: fontSize,
+        weight: FontWeight.w500,
+        color: color,
+        letterSpacing: letterSpacing ?? 0,
+        height: height,
+      );
+
+  @Deprecated('Use AppTheme.body().')
+  static TextStyle sansRegular({
+    double fontSize = 13,
+    Color color = inkMuted,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      _archivo(
+        size: fontSize,
+        weight: FontWeight.w400,
+        color: color,
+        letterSpacing: letterSpacing ?? 0,
+        height: height,
+      );
+
+  // ---------------------------------------------------------------------------
+  // BRIGHTNESS-AWARE ACCESSORS
+  //
+  // The constants above are the light palette. Referring to them directly in a
+  // widget pins that widget to light mode — AppTheme.ink is near-black, which
+  // is invisible on a dark ground. These resolve against the active theme, so
+  // one call site works in both.
+  //
+  // Use these anywhere a colour is chosen at build time. The raw constants stay
+  // for the ThemeData definitions below and for the signal colours, which are
+  // deliberately identical in both modes because they encode data, not chrome.
+  // ---------------------------------------------------------------------------
+
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  /// Primary text and iconography.
+  static Color inkOf(BuildContext context) => isDark(context) ? inkDark : ink;
+
+  /// Supporting text.
+  static Color inkMutedOf(BuildContext context) =>
+      isDark(context) ? inkMutedDark : inkMuted;
+
+  /// Labels, meta, placeholders.
+  static Color inkFaintOf(BuildContext context) =>
+      isDark(context) ? inkFaintDark : inkFaint;
+
+  /// The page ground.
+  static Color paperOf(BuildContext context) =>
+      isDark(context) ? paperDark : paper;
+
+  /// Cards, rows, sheets.
+  static Color surfaceOf(BuildContext context) =>
+      isDark(context) ? surfaceDark : surface;
+
+  /// Hairline separators.
+  static Color ruleOf(BuildContext context) =>
+      isDark(context) ? ruleDark : rule;
+
+  /// Fill for a filled primary button.
+  ///
+  /// In light mode this is ink — the system's rule that primary actions are
+  /// black on paper. Inverting that literally for dark mode produces a
+  /// full-width slab at #F2F1EC, which on a #14100C ground is a glare source
+  /// rather than a button. This steps it back to a warm off-white: still
+  /// unmistakably the primary action, without lighting up the screen.
+  static const Color _inkFillDark = Color(0xFFD9D6CC);
+
+  static Color primaryFillOf(BuildContext context) =>
+      isDark(context) ? _inkFillDark : ink;
+
+  /// Label colour for [primaryFillOf].
+  static Color onPrimaryFillOf(BuildContext context) =>
+      isDark(context) ? paperDark : surface;
+
+  /// What sits ON an ink-coloured surface — a filled primary button, a
+  /// snackbar, a selected chip.
+  ///
+  /// This is the counterpart [inkOf] needs and the one that is easy to forget.
+  /// In dark mode `inkOf` returns near-white, so a button painted with it and
+  /// labelled `Colors.white` is white text on a white button. Pairing every
+  /// ink background with this keeps the contrast inverted correctly in both
+  /// modes.
+  static Color onInkOf(BuildContext context) =>
+      isDark(context) ? paperDark : surface;
+
+  /// Signal washes are near-paper by design, so the light versions read as
+  /// muddy blocks on a dark ground. These lift the hue instead.
+  static Color washOf(BuildContext context, Color signal) => isDark(context)
+      ? Color.alphaBlend(signal.withValues(alpha: 0.18), paperDark)
+      : Color.alphaBlend(signal.withValues(alpha: 0.10), paper);
+
   static ThemeData get lightTheme => _build(
         brightness: Brightness.light,
         inkC: ink,
@@ -489,4 +676,36 @@ extension CandidateSourceStyle on CandidateSource {
   /// email are never gated behind a credit — charging for a contact the
   /// candidate volunteered is indefensible.
   bool get contactAlwaysVisible => this == CandidateSource.applied;
+}
+
+
+// =============================================================================
+// JOB SOURCE — the job seeker's equivalent of CandidateSource.
+//
+// The specification is explicit that a third-party listing must always show
+// where it came from, and that the whole External section disappears when the
+// admin turns third-party jobs off. Provenance is not a detail here: a seeker
+// deciding whether to trust a listing needs to know who published it.
+// =============================================================================
+
+enum JobSource { luckyBoss, external }
+
+extension JobSourceStyle on JobSource {
+  String get label {
+    switch (this) {
+      case JobSource.luckyBoss:
+        return 'Lucky Boss';
+      case JobSource.external:
+        return 'External';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case JobSource.luckyBoss:
+        return AppTheme.signalPositive;
+      case JobSource.external:
+        return AppTheme.signalSource;
+    }
+  }
 }

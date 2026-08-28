@@ -5,6 +5,7 @@ import '../../providers/employer_provider.dart';
 import '../../widgets/ledger_components.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
 import '../employer_main_navigation_screen.dart';
+import 'company_registration_screen.dart';
 
 /// The login screen is where the logo has to do all the work.
 ///
@@ -36,18 +37,60 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
     super.dispose();
   }
 
+  /// A readable company name from an email domain — 'ravi-builders.com' becomes
+  /// 'Ravi Builders'. A guess, and clearly editable, but better than showing a
+  /// recruiter a dashboard headed "Your company".
+  static String _companyFromEmail(String email) {
+    if (!email.contains('@')) return '';
+    final domain = email.split('@').last.split('.').first;
+    if (domain.isEmpty ||
+        const {
+          'gmail',
+          'yahoo',
+          'hotmail',
+          'outlook',
+        }.contains(domain.toLowerCase())) {
+      return '';
+    }
+    return domain
+        .split(RegExp(r'[-_]'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+  }
+
   Future<void> _submit() async {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _submitting = true);
-    // TODO: replace with POST /api/v1/auth/login once the endpoint returns a
-    // Sanctum token. Right now the backend has no working employer login route,
-    // so this only sets local state.
-    await Future.delayed(const Duration(milliseconds: 550));
+
+    // No server yet, so this creates an on-device account — the same decision
+    // as the seeker app, and the same rule: the account is real and it is
+    // written down. A sign-in that reports success and stores nothing is what
+    // made the seeker app forget its user on every launch.
+    //
+    // TODO: try POST /api/v1/auth/login first once an employer login route
+    // exists, and fall back to this only when nothing answers.
+    final provider = context.read<EmployerProvider>();
+    await provider.hydrate();
     if (!mounted) return;
 
-    context.read<EmployerProvider>().setAuthenticated(true);
+    final email = _emailController.text.trim();
+    if (provider.company.email.isEmpty) {
+      provider.updateCompany(
+        provider.company.copyWith(
+          email: email,
+          // Seeds the company name from the email domain so the dashboard is not
+          // headed "Your company" on first run. Fully editable afterwards.
+          name: provider.company.name.isEmpty ? _companyFromEmail(email) : null,
+        ),
+      );
+    }
+    provider.setAuthenticated(true);
+    await provider.flush();
+    if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const EmployerMainNavigationScreen()),
@@ -74,10 +117,7 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                     const Center(child: LuckyBossBrandLogo(height: 44)),
                     const SizedBox(height: 14),
                     Center(
-                      child: SizedBox(
-                        width: 132,
-                        child: const BrandRule(),
-                      ),
+                      child: SizedBox(width: 132, child: const BrandRule()),
                     ),
                     const SizedBox(height: 40),
 
@@ -96,9 +136,14 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: AppTheme.signalClosedWash,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusRow),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusRow,
+                          ),
                         ),
-                        child: Text(_error!, style: AppTheme.body(color: AppTheme.signalClosed)),
+                        child: Text(
+                          _error!,
+                          style: AppTheme.body(color: AppTheme.signalClosed),
+                        ),
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -106,14 +151,22 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                     const MetaText('Work email'),
                     const SizedBox(height: 7),
                     TextFormField(
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => FocusScope.of(context).unfocus(),
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.username],
                       style: AppTheme.body(color: AppTheme.ink),
-                      decoration: const InputDecoration(hintText: 'you@company.com'),
+                      decoration: const InputDecoration(
+                        hintText: 'you@company.com',
+                      ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter your work email';
-                        if (!v.contains('@')) return 'That does not look like an email address';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Enter your work email';
+                        }
+                        if (!v.contains('@')) {
+                          return 'That does not look like an email address';
+                        }
                         return null;
                       },
                     ),
@@ -122,6 +175,10 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                     const MetaText('Password'),
                     const SizedBox(height: 7),
                     TextFormField(
+                      // Enter submits the form. Left as it was — this field
+                      // already said what Enter does, so it never reached the
+                      // traversal fallback the other fields were falling into.
+                      textInputAction: TextInputAction.done,
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       autofillHints: const [AutofillHints.password],
@@ -129,18 +186,25 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                             size: 18,
                             color: AppTheme.inkFaint,
                           ),
-                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
                         ),
                       ),
                       onFieldSubmitted: (_) => _submit(),
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Enter your password' : null,
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Enter your password'
+                          : null,
                     ),
                     const SizedBox(height: 14),
 
@@ -156,18 +220,27 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                                 height: 20,
                                 child: Checkbox(
                                   value: _rememberMe,
-                                  onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                                  side: const BorderSide(color: AppTheme.inkFaint, width: 1.2),
+                                  onChanged: (v) =>
+                                      setState(() => _rememberMe = v ?? false),
+                                  side: const BorderSide(
+                                    color: AppTheme.inkFaint,
+                                    width: 1.2,
+                                  ),
                                   activeColor: AppTheme.ink,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(3),
                                   ),
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Flexible(
-                                child: Text('Remember me', style: AppTheme.small(), overflow: TextOverflow.ellipsis),
+                                child: Text(
+                                  'Remember me',
+                                  style: AppTheme.small(),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -178,8 +251,10 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             minimumSize: const Size(0, 36),
                           ),
-                          child: Text('Forgot password',
-                              style: AppTheme.small(color: AppTheme.inkMuted)),
+                          child: Text(
+                            'Forgot password',
+                            style: AppTheme.small(color: AppTheme.inkMuted),
+                          ),
                         ),
                       ],
                     ),
@@ -193,7 +268,9 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                               height: 17,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(AppTheme.surface),
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppTheme.surface,
+                                ),
                               ),
                             )
                           : const Text('Sign in'),
@@ -213,13 +290,23 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                     const SizedBox(height: 16),
 
                     OutlinedButton(
-                      onPressed: () {},
+                      // Was `onPressed: () {}` — a button that rendered,
+                      // invited a tap and did nothing at all.
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CompanyRegistrationScreen(),
+                        ),
+                      ),
                       child: const Text('Register your company'),
                     ),
                     const SizedBox(height: 24),
 
                     Center(
-                      child: MetaText('Growth partner in your hiring journey', size: 9),
+                      child: MetaText(
+                        'Growth partner in your hiring journey',
+                        size: 9,
+                      ),
                     ),
                     const SizedBox(height: 8),
                   ],

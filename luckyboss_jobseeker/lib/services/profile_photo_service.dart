@@ -2,11 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../core/config/api_config.dart';
 import 'auth_service.dart';
+import 'document_service.dart';
 
 /// Where a candidate's photo came from.
 enum PhotoSource { camera, gallery }
@@ -20,133 +19,106 @@ class PhotoResult {
   final PhotoFailure? failure;
   final String? message;
 
+  /// True when [message] describes something the candidate can do something
+  /// about — a photo the server rejected, a demo account that may not change
+  /// its picture, a file too large. False for infrastructure failures, which
+  /// are shown to nobody because the photo was saved on the device anyway.
+  final bool actionable;
+
   const PhotoResult.success(this.url)
       : failure = null,
-        message = null;
+        message = null,
+        actionable = false;
 
-  const PhotoResult.failed(this.failure, this.message) : url = null;
+  const PhotoResult.failed(this.failure, this.message, {this.actionable = false})
+      : url = null;
 
   bool get ok => url != null;
 }
 
-/// Capture, permission and upload for the candidate profile photo (spec §31).
+/// Capture, permission and storage for the candidate profile photo (spec §31).
 ///
-/// The permission model here is the part worth reading. Asking the OS for a
-/// permission is not the same as having one, and a user who has denied twice on
-/// Android will never see the system dialog again no matter how many times the
-/// app requests it. So a denial is not treated as a generic error: the app
-/// distinguishes "not now" from "never again", and only the second case sends
-/// the user to Settings. Prompting into a void is how permission flows earn
-/// their reputation for being broken.
+/// Picking is delegated to [DocumentService] and that is the fix, not a tidy-up.
+/// This class used to call `image_picker` directly for both camera and gallery,
+/// and its gallery path opened nothing at all in the browser — the candidate
+/// tapped "Choose from device" and the sheet simply closed. `file_picker` opens
+/// a real file dialog on web (which also accepts a dragged file) and the system
+/// picker on a handset, and returns bytes rather than a path, so there is no
+/// filesystem to be missing on web.
 class ProfilePhotoService {
   ProfilePhotoService._();
 
-  static final ImagePicker _picker = ImagePicker();
-
-  /// Longest edge requested from the platform picker.
+  /// Picks a photo and stores it.
   ///
-  /// The server re-encodes to its own ceiling regardless — this is not a
-  /// security control, it is courtesy. Shrinking before upload saves a
-  /// candidate on mobile data from posting an 8MB camera original over a
-  /// connection they are paying for.
-  static const double _maxEdge = 1440;
-  static const int _quality = 88;
-
-  /// Picks a photo, asking for the right permission first, and uploads it.
-  ///
-  /// Returns the absolute URL of the stored photo on success.
+  /// Returns a `data:` URI on success — the photo as it will be rendered.
   static Future<PhotoResult> capture(PhotoSource source) async {
-    final permission = await _ensurePermission(source);
-    if (permission != null) return permission;
+    final picked = source == PhotoSource.camera
+        ? await DocumentService.captureWithCamera()
+        : await DocumentService.pickDocument(imagesOnly: true);
 
-    XFile? file;
-    try {
-      file = await _picker.pickImage(
-        source: source == PhotoSource.camera
-            ? ImageSource.camera
-            : ImageSource.gallery,
-        maxWidth: _maxEdge,
-        maxHeight: _maxEdge,
-        imageQuality: _quality,
-      );
-    } catch (e) {
-      debugPrint('[ProfilePhotoService] pick failed: $e');
-      return const PhotoResult.failed(
-        PhotoFailure.error,
-        'Could not open the camera on this device.',
-      );
+    if (!picked.isOk) {
+      return switch (picked.failure) {
+        PickFailure.cancelled =>
+          const PhotoResult.failed(PhotoFailure.cancelled, null),
+        PickFailure.permissionPermanentlyDenied => PhotoResult.failed(
+            PhotoFailure.permissionPermanentlyDenied, picked.message,
+            actionable: true),
+        PickFailure.permissionDenied => PhotoResult.failed(
+            PhotoFailure.permissionDenied, picked.message,
+            actionable: true),
+        _ => PhotoResult.failed(PhotoFailure.error, picked.message,
+            actionable: true),
+      };
     }
 
-    // A null file means the user backed out of the picker. That is a normal
-    // outcome, not an error, and must not raise a message at them.
-    if (file == null) {
-      return const PhotoResult.failed(PhotoFailure.cancelled, null);
-    }
-
-    return _upload(file);
+    return _store(picked.file!);
   }
 
-  /// Requests the permission [source] needs. Returns null when cleared to
-  /// proceed, or a failure describing what to tell the user.
-  static Future<PhotoResult?> _ensurePermission(PhotoSource source) async {
-    // The browser has no permission_handler concept; getUserMedia prompts on
-    // its own when the picker opens. Requesting here would report denied and
-    // block a flow that actually works.
-    if (kIsWeb) return null;
+  /// Opens the OS settings page for this app, for the permanently-denied case.
+  static Future<void> openSettings() => DocumentService.openSettings();
 
-    // Gallery access on Android 13+ is granted implicitly to the system photo
-    // picker image_picker uses, so requesting storage there prompts for
-    // something the app does not need. Only the camera requires an explicit ask.
-    if (source == PhotoSource.gallery && defaultTargetPlatform == TargetPlatform.android) {
-      return null;
+  /// Stores the photo, on the server when there is one and on the device
+  /// otherwise.
+  ///
+  /// The order matters and is deliberate. A candidate who has just framed a
+  /// photo of themselves has done their part; whether a Laravel instance is
+  /// reachable is not their problem and must not be reported to them as a
+  /// failure. So the bytes are kept locally first, and the upload is an
+  /// attempt layered on top: if it succeeds the server URL wins, and if it
+  /// does not the local copy still shows and still survives a restart.
+  ///
+  /// The old behaviour was the opposite, and it is what sir hit — an account
+  /// created offline had no Sanctum token, so this method stopped at the header
+  /// check and answered "Please sign in again to update your photo" to somebody
+  /// who was, as far as the app was concerned, signed in.
+  static Future<PhotoResult> _store(PickedFile file) async {
+    final local = DocumentService.dataUri(file.bytes, file.mimeType);
+
+    final headers = await AuthService.authHeaders();
+    // No Sanctum token means either a signed-out app or an on-device account.
+    // Either way there is nothing to upload to, and the local copy is the
+    // answer rather than an error.
+    if (!headers.containsKey('Authorization')) {
+      return PhotoResult.success(local);
     }
 
-    final permission =
-        source == PhotoSource.camera ? Permission.camera : Permission.photos;
-
-    var status = await permission.status;
-    if (status.isGranted || status.isLimited) return null;
-
-    if (status.isPermanentlyDenied) {
-      return PhotoResult.failed(
-        PhotoFailure.permissionPermanentlyDenied,
-        source == PhotoSource.camera
-            ? 'Camera access is turned off for Lucky Boss. Open Settings to allow it.'
-            : 'Photo access is turned off for Lucky Boss. Open Settings to allow it.',
-      );
-    }
-
-    status = await permission.request();
-    if (status.isGranted || status.isLimited) return null;
-
-    if (status.isPermanentlyDenied) {
-      return PhotoResult.failed(
-        PhotoFailure.permissionPermanentlyDenied,
-        source == PhotoSource.camera
-            ? 'Camera access is turned off for Lucky Boss. Open Settings to allow it.'
-            : 'Photo access is turned off for Lucky Boss. Open Settings to allow it.',
-      );
-    }
-
-    return PhotoResult.failed(
-      PhotoFailure.permissionDenied,
-      source == PhotoSource.camera
-          ? 'Lucky Boss needs camera access to take your profile photo.'
-          : 'Lucky Boss needs photo access to choose a profile photo.',
-    );
+    final uploaded = await _upload(file, headers);
+    // A refusal the candidate can act on (demo account, file too large) is
+    // worth surfacing. A transport failure is not — keep the local photo.
+    if (uploaded.ok) return uploaded;
+    if (uploaded.message != null && uploaded.actionable) return uploaded;
+    return PhotoResult.success(local);
   }
+
+  /// True when [url] is a photo held on this device rather than on a server.
+  static bool isLocal(String? url) => url != null && url.startsWith('data:');
 
   /// Sends the file to `POST /api/v1/job-seeker/photo`.
-  static Future<PhotoResult> _upload(XFile file) async {
+  static Future<PhotoResult> _upload(
+    PickedFile file,
+    Map<String, String> headers,
+  ) async {
     try {
-      final headers = await AuthService.authHeaders();
-      if (!headers.containsKey('Authorization')) {
-        return const PhotoResult.failed(
-          PhotoFailure.error,
-          'Please sign in again to update your photo.',
-        );
-      }
-
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('${ApiConfig.v1}/job-seeker/photo'),
@@ -156,8 +128,8 @@ class ProfilePhotoService {
       // and fromPath would throw.
       request.files.add(http.MultipartFile.fromBytes(
         'photo',
-        await file.readAsBytes(),
-        filename: file.name.isEmpty ? 'photo.jpg' : file.name,
+        file.bytes,
+        filename: file.fileName.isEmpty ? 'photo.jpg' : file.fileName,
       ));
 
       final response = await http.Response.fromStream(
@@ -182,20 +154,18 @@ class ProfilePhotoService {
         return const PhotoResult.failed(
           PhotoFailure.error,
           'The demo account cannot change its photo. Create a free account to set yours.',
-        );
-      }
-      if (response.statusCode == 401) {
-        return const PhotoResult.failed(
-          PhotoFailure.error,
-          'Your session expired. Please sign in again.',
+          actionable: true,
         );
       }
       if (response.statusCode == 422) {
         return PhotoResult.failed(
           PhotoFailure.error,
           _validationMessage(response.body) ?? 'That photo could not be used.',
+          actionable: true,
         );
       }
+      // 401 and every 5xx fall through: the photo is already safe on the
+      // device, so telling the candidate about the server helps nobody.
       return PhotoResult.failed(
         PhotoFailure.error,
         'Upload failed (${response.statusCode}).',
@@ -210,22 +180,22 @@ class ProfilePhotoService {
   }
 
   /// Removes the stored photo.
+  ///
+  /// Always succeeds from the candidate's side: the local copy is what the app
+  /// renders, so clearing it is the removal. The server call is best-effort
+  /// housekeeping for accounts that have one.
   static Future<bool> remove() async {
+    final headers = await AuthService.authHeaders();
+    if (!headers.containsKey('Authorization')) return true;
     try {
-      final headers = await AuthService.authHeaders();
-      if (!headers.containsKey('Authorization')) return false;
-      final res = await http
+      await http
           .delete(Uri.parse('${ApiConfig.v1}/job-seeker/photo'), headers: headers)
           .timeout(const Duration(seconds: 20));
-      return res.statusCode == 200;
     } catch (e) {
       debugPrint('[ProfilePhotoService] remove failed: $e');
-      return false;
     }
+    return true;
   }
-
-  /// Opens the OS settings page for this app, for the permanently-denied case.
-  static Future<void> openSettings() => openAppSettings();
 
   static String? _validationMessage(String body) {
     try {

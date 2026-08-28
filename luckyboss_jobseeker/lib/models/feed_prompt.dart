@@ -56,8 +56,11 @@ class FeedPrompts {
     FeedPrompt(
       id: preferredCountry,
       question: 'Where do you want to work?',
-      detail: 'We will prioritise vacancies in that market.',
-      kind: PromptKind.choice,
+      // Multi-choice, not single. Lucky Boss places across three markets and a
+      // candidate open to two of them was being made to discard one, which
+      // narrowed their own feed for no reason.
+      detail: 'Pick every market you would work in.',
+      kind: PromptKind.multiChoice,
       options: ['India', 'Singapore', 'Malaysia'],
       completionGain: 8,
     ),

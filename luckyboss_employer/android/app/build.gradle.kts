@@ -6,7 +6,12 @@ plugins {
 
 android {
     namespace = "com.app.luckybossemployer"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned rather than inherited from `flutter.compileSdkVersion`, which is
+    // still 34 in this toolchain. Adding file_picker for the shared upload
+    // stack pulls in flutter_plugin_android_lifecycle, which requires 36, and
+    // the release build fails on the AAR metadata check without it. The job
+    // seeker app is pinned the same way for the same reason.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

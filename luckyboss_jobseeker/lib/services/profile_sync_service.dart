@@ -116,8 +116,12 @@ class ProfileSyncService {
     }
     if (p.currentTitle.isEmpty) p.currentTitle = str('current_title');
     if (p.currentCity.isEmpty) p.currentCity = str('current_location');
-    if (p.preferredCountry.isEmpty) {
-      p.preferredCountry = str('preferred_location');
+    if (p.preferredCountries.isEmpty) {
+      // The server still sends one market. Wrapping it keeps the client's
+      // multi-market answer intact when there is one, and accepts the single
+      // value when there is not.
+      final remote = str('preferred_location');
+      if (remote.isNotEmpty) p.preferredCountries = [remote];
     }
     if (p.expectedSalary.isEmpty) p.expectedSalary = str('expected_salary');
     if (p.availability.isEmpty) p.availability = str('availability');

@@ -9,7 +9,10 @@ import '../../widgets/onboarding_components.dart';
 import '../../widgets/city_field.dart';
 import '../main_navigation_screen.dart';
 import 'steps/education_step.dart';
+import 'steps/field_details_step.dart';
 import 'steps/key_skills_step.dart';
+import 'steps/trade_step.dart';
+import 'steps/work_category_step.dart';
 import 'steps/work_step.dart';
 
 /// Profile setup, rebuilt.
@@ -20,8 +23,18 @@ import 'steps/work_step.dart';
 /// received, which is the worst possible first impression of a product whose
 /// entire pitch is that it tracks their application.
 ///
-/// So this starts from what is genuinely unknown: are they a student or already
-/// working? Everything downstream branches on that answer.
+/// So this starts from what is genuinely unknown. The first question is now the
+/// category — what kind of work — because that determines whether the rest of
+/// the wizard should be asking about qualifications and key skills, or about a
+/// trade, licences, languages and a day rate.
+///
+/// Both branches are three screens. The professional branch is the wizard that
+/// was already here. The field branch exists because that one was unusable for
+/// most of the people this agency actually places: it opened by asking a mason
+/// whether he was a student, then for his highest qualification, then for a
+/// list of key skills typed into a chip field. Every one of those questions is
+/// either irrelevant or unanswerable on a building site, and the result was a
+/// profile with nothing in it that any employer could search.
 class ProfileWizardScreen extends StatefulWidget {
   const ProfileWizardScreen({super.key});
 
@@ -37,14 +50,15 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   int _step = 0;
   bool _parsingResume = false;
 
-  /// Track, background, skills. Three questions, not three forms.
+  /// Three questions either way, but not the same three.
   static const int _totalSteps = 3;
 
-  static const List<String> _stepLabels = [
-    'About you',
-    'Background',
-    'Your skills',
-  ];
+  /// The category is always first. What follows depends on the path it sits on,
+  /// and the labels have to follow too — a scaffolder shown a step called
+  /// "Background" is being asked, in the app's own words, for a CV.
+  List<String> get _stepLabels => _data.isFieldWork
+      ? const ['Your work', 'Your trade', 'Last details']
+      : const ['Your work', 'Background', 'Your skills'];
 
   @override
   void dispose() {
@@ -54,14 +68,25 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   }
 
   bool get _canAdvance => switch (_step) {
-        0 => _data.trackStepComplete,
-        1 => _data.isStudent ? _data.educationStepComplete : _data.workStepComplete,
-        2 => _data.skillsStepComplete,
+        0 => _data.categoryStepComplete,
+        1 => _data.isFieldWork
+            ? _data.tradeStepComplete
+            : (_data.track != null &&
+                _data.currentCity.trim().isNotEmpty &&
+                (_data.isStudent
+                    ? _data.educationStepComplete
+                    : _data.workStepComplete)),
+        2 => _data.isFieldWork
+            ? _data.fieldDetailsStepComplete
+            : _data.skillsStepComplete,
         _ => false,
       };
 
   void _next() {
     if (!_canAdvance) return;
+    // Put the keyboard away before moving. A new step is a new question, and
+    // one asked from behind a keyboard reads as a form that will not end.
+    _dismissKeyboard();
     if (_step == _totalSteps - 1) {
       _finish();
       return;
@@ -75,6 +100,7 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   }
 
   void _back() {
+    _dismissKeyboard();
     if (_step == 0) {
       Navigator.maybePop(context);
       return;
@@ -97,10 +123,21 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
 
     provider.setSkills(_data.skills);
     provider.applyOnboarding(
+      categories: _data.categories,
+      roleTitle: _data.roleTitle,
+      certificates: _data.certificates.toList(),
+      languages: _data.languages.toList(),
+      workPermitStatus: _data.workPermitStatus,
+      payPeriod: _data.payPeriod,
       isStudent: _data.isStudent,
       currentCity: _data.currentCity,
-      currentTitle: _data.currentTitle,
-      yearsExperience: _data.yearsExperience,
+      // On the field path the trade is the job title, and the years in trade
+      // are the years of experience. Mapping them here rather than adding a
+      // parallel set of profile fields keeps matching, search and the profile
+      // screen working off one set of values.
+      currentTitle: _data.isFieldWork ? _data.roleTitle : _data.currentTitle,
+      yearsExperience:
+          _data.isFieldWork ? _data.yearsInTrade : _data.yearsExperience,
       qualification: _data.qualification?.label,
       course: _data.course,
       passingYear: _data.passingYear,
@@ -224,36 +261,27 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
                 controller: _pager,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _scroll(_trackStep()),
                   _scroll(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AiAutofillBanner(
-                          onUpload: _uploadResume,
-                          busy: _parsingResume,
-                          fileName: _data.resumeFileName,
-                        ),
-                        const SizedBox(height: 26),
-                        if (_data.isStudent)
-                          EducationStep(
-                              data: _data, onChanged: () => setState(() {}))
-                        else
-                          WorkStep(data: _data, onChanged: () => setState(() {})),
-                      ],
-                    ),
-                  ),
-                  _scroll(
-                    KeySkillsStep(
-                      selected: _data.skills,
-                      seedCategory: _skillCategory(),
-                      onChanged: (list) => setState(() {
-                        _data.skills
-                          ..clear()
-                          ..addAll(list);
+                    WorkCategoryStep(
+                      selected: _data.categories,
+                      maxSelections: OnboardingData.maxCategories,
+                      onChanged: (name) => setState(() {
+                        final wasPrimary = _data.category;
+                        _data.toggleCategory(name);
+                        // Only a change of *primary* invalidates the trade and
+                        // licences — they were chosen from that category's
+                        // vocabulary. Adding a second category leaves them
+                        // alone, because nothing about the main trade changed.
+                        if (_data.category != wasPrimary) {
+                          _data.roleTitle = '';
+                          _data.certificates.clear();
+                          _data.skills.clear();
+                        }
                       }),
                     ),
                   ),
+                  _scroll(_secondStep()),
+                  _scroll(_thirdStep()),
                 ],
               ),
             ),
@@ -264,11 +292,67 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     );
   }
 
+  /// Step two: the trade for field work, education or employment otherwise.
+  Widget _secondStep() {
+    if (_data.isFieldWork) {
+      return TradeStep(data: _data, onChanged: () => setState(() {}));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Resume autofill is offered on the professional path only. A candidate
+        // who has never had a CV written for them is not helped by being asked
+        // to upload one — it reads as a requirement they cannot meet.
+        AiAutofillBanner(
+          onUpload: _uploadResume,
+          busy: _parsingResume,
+          fileName: _data.resumeFileName,
+        ),
+        const SizedBox(height: 26),
+        _trackStep(),
+        if (_data.track != null) ...[
+          const SizedBox(height: 28),
+          if (_data.isStudent)
+            EducationStep(data: _data, onChanged: () => setState(() {}))
+          else
+            WorkStep(data: _data, onChanged: () => setState(() {})),
+        ],
+      ],
+    );
+  }
+
+  /// Step three: the practical details for field work, key skills otherwise.
+  Widget _thirdStep() {
+    if (_data.isFieldWork) {
+      return FieldDetailsStep(
+        data: _data,
+        cityController: _cityController,
+        onChanged: () => setState(() {}),
+      );
+    }
+    return KeySkillsStep(
+      selected: _data.skills,
+      seedCategory: _skillCategory(),
+      onChanged: (list) => setState(() {
+        _data.skills
+          ..clear()
+          ..addAll(list);
+      }),
+    );
+  }
+
   /// Maps the candidate's answers onto a job category to seed skill suggestions.
   ///
-  /// Falls back to whatever they picked in the app's country/category filter so
-  /// the first list is never empty.
+  /// The chosen category wins outright now — it was asked first and explicitly,
+  /// so guessing from a course name would be second-guessing an answer we
+  /// already have. The keyword reading below is only a fallback for a profile
+  /// that predates the category step.
   String _skillCategory() {
+    if (_data.category.isNotEmpty) return _data.category;
+    return _inferCategory();
+  }
+
+  String _inferCategory() {
     final course = _data.course.toLowerCase();
     final title = _data.currentTitle.toLowerCase();
     final combined = '$course $title';
@@ -277,13 +361,13 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
       return 'Healthcare & Nursing';
     }
     if (combined.contains('warehouse') || combined.contains('logistic') || combined.contains('supply')) {
-      return 'Logistics & Warehouse';
+      return 'Warehouse & Logistics';
     }
     if (combined.contains('account') || combined.contains('finance') || combined.contains('b.com') || combined.contains('m.com')) {
       return 'Finance & Banking';
     }
     if (combined.contains('civil') || combined.contains('mechanical') || combined.contains('electrical') || combined.contains('b.e')) {
-      return 'Engineering & Tech';
+      return 'Engineering';
     }
     if (combined.contains('software') || combined.contains('developer') || combined.contains('bca') || combined.contains('mca') || combined.contains('b.tech')) {
       return 'IT & Software';
@@ -291,28 +375,40 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     return context.read<JobSeekerProvider>().profile.preferredCategory;
   }
 
+  /// Drops focus, and with it the keyboard.
+  ///
+  /// `unfocus` rather than `FocusScope.of(context).unfocus()` on a primary
+  /// focus that may not exist — calling it unconditionally on a step with no
+  /// text field at all is a no-op, which is what we want.
+  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
   Widget _scroll(Widget child) => SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
+        // Dragging the page down puts the keyboard away, the behaviour every
+        // native form has. Without it the only way to dismiss it is the system
+        // back gesture, which on Android also leaves the step.
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: child,
       );
 
+  /// The student / working fork, plus the current city.
+  ///
+  /// This used to be a screen of its own, opening the wizard. It is a section
+  /// of step two now because the category question took its place — and because
+  /// it never applied to field work in the first place. "Are you a student?" is
+  /// not a question you put to somebody looking for work as a cleaner.
   Widget _trackStep() {
-    final profile = context.watch<JobSeekerProvider>().profile;
-    final greeting = profile.name.trim().isEmpty
-        ? "Let's build your profile"
-        : "Welcome, ${profile.name.split(' ').first}";
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(greeting,
-            style: AppTheme.serifTitle(fontSize: 28, color: AppTheme.inkOf(context))),
+        Text('Your background',
+            style: AppTheme.serifTitle(fontSize: 26, color: AppTheme.inkOf(context))),
         const SizedBox(height: 6),
         Text(
-          'Two quick questions and we will start matching you to live vacancies.',
+          'So we ask you the right questions.',
           style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.inkMutedOf(context)),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 22),
 
         TrackCard(
           title: CandidateTrack.student.title,
@@ -360,7 +456,7 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
         top: false,
         child: Row(
           children: [
-            if (_step == 2)
+            if (_step == 2 && !_data.isFieldWork)
               Expanded(
                 flex: 2,
                 child: Text(

@@ -1,173 +1,82 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_theme.dart';
-import '../models/employer_models.dart';
-import '../services/api_service.dart';
+import '../models/candidate.dart';
+import '../models/employer_job.dart';
+import '../models/uploaded_document.dart';
+import '../services/candidate_pool_service.dart';
+import '../services/local_store.dart';
 import '../widgets/ledger_components.dart';
 
+/// The employer's state, and the only place it is written down.
+///
+/// Rebuilt on the same foundation as the job seeker provider, for the same
+/// reason: this app ships as a standalone APK, and the version it replaces kept
+/// its jobs, its candidates and its plan counters in memory alone. A hiring
+/// manager could complete the whole post-a-vacancy wizard, close the app, and
+/// find nothing there on reopening.
+///
+/// Persistence hangs off [notifyListeners] rather than being called by hand at
+/// every mutation, so a method added later cannot forget to save.
 class EmployerProvider extends ChangeNotifier {
+  // ---------------------------------------------------------------------------
+  // Session and company
+  // ---------------------------------------------------------------------------
+
   bool _isAuthenticated = false;
   bool _isDarkMode = false;
-  final String _companyName = 'Lucky Boss Enterprise Pte Ltd';
-  String _phone = '+65 8123 9900';
-
-  // ---------------------------------------------------------------------------
-  // Plan entitlements.
-  //
-  // These are mirrored from the server for display only. The Laravel API must
-  // enforce them independently — a client that decides its own limits can be
-  // bypassed by anyone who can call the endpoint directly.
-  // ---------------------------------------------------------------------------
-  final int _contactCreditsTotal = 250;
-  int _contactCreditsUsed = 66;
-  final int _aiCreditsTotal = 100;
-  final int _aiCreditsUsed = 58;
-  final bool _aiEnabledOnPlan = true;
-
-  final List<EmployerJobModel> _jobs = [
-    EmployerJobModel(
-      id: 'emp-j1',
-      title: 'Senior Backend Engineer',
-      category: 'IT & Software',
-      location: 'Singapore, One-North',
-      countryCode: 'SG',
-      salaryDisplay: 'SGD 6,500 - 9,000 / mo',
-      applicantsCount: 41,
-      status: 'published',
-      postedDate: DateTime.now().subtract(const Duration(days: 6)),
-    ),
-    EmployerJobModel(
-      id: 'emp-j2',
-      title: 'Warehouse Supervisor',
-      category: 'Logistics & Warehouse',
-      location: 'Singapore, Jurong East',
-      countryCode: 'SG',
-      salaryDisplay: 'SGD 3,200 - 4,500 / mo',
-      applicantsCount: 12,
-      status: 'published',
-      postedDate: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-  ];
-
-  // ---------------------------------------------------------------------------
-  // DEMO DATA — placeholder until the Laravel API serves candidates.
-  //
-  // There is currently no employer candidates endpoint: routes/api.php exposes
-  // auth, jobs, two dashboards and an FCM token route, and nothing else. These
-  // records exist so the screen can be reviewed; every one of them should be
-  // replaced by GET /api/v1/employer/jobs/{job}/candidates once it exists.
-  // ---------------------------------------------------------------------------
-  final List<ApplicantModel> _applicants = [
-    ApplicantModel(
-      id: 'cand-01',
-      jobId: 'emp-j1',
-      jobTitle: 'Senior Backend Engineer',
-      candidateName: 'Priya Raghunathan',
-      headline: 'Senior Backend Engineer, Zalora',
-      candidatePhone: '+65 8921 4455',
-      candidateEmail: 'priya.r@example.com',
-      experience: '8 yrs',
-      location: 'Singapore',
-      skills: ['Java', 'Kafka', 'PostgreSQL', 'AWS', 'Terraform'],
-      aiMatchScore: 91,
-      status: 'Shortlisted',
-      source: CandidateSource.applied,
-      lastActivity: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    ApplicantModel(
-      id: 'cand-02',
-      jobId: 'emp-j1',
-      jobTitle: 'Senior Backend Engineer',
-      candidateName: 'Nurul Aisyah Binti Rahman',
-      headline: 'Senior Full-Stack Engineer (Platform), Grab',
-      candidatePhone: '+60 12 456 7788',
-      candidateEmail: 'n.aisyah@example.com',
-      experience: '5 yrs',
-      location: 'Kuala Lumpur',
-      skills: ['React', 'Node', 'Go', 'GCP'],
-      aiMatchScore: 74,
-      status: 'New',
-      source: CandidateSource.recommended,
-      lastActivity: DateTime.now().subtract(const Duration(hours: 20)),
-    ),
-    ApplicantModel(
-      id: 'cand-03',
-      jobId: 'emp-j1',
-      jobTitle: 'Senior Backend Engineer',
-      candidateName: 'Arjun Venkataraman',
-      headline: 'DevOps Engineer, Freshworks',
-      candidatePhone: '+91 98407 22119',
-      candidateEmail: 'arjun.v@example.com',
-      experience: '6 yrs',
-      location: 'Chennai',
-      skills: ['Kubernetes', 'Terraform', 'AWS', 'CI/CD'],
-      // No score: AI scoring was unavailable for this record, so it fell back to
-      // rule matching. The UI shows that rather than inventing a number.
-      aiMatchScore: null,
-      status: 'Viewed',
-      source: CandidateSource.external,
-      sourceName: 'TalentBridge Feed',
-      lastActivity: DateTime.now().subtract(const Duration(days: 4)),
-    ),
-    ApplicantModel(
-      id: 'cand-04',
-      jobId: 'emp-j1',
-      jobTitle: 'Senior Backend Engineer',
-      candidateName: 'Wei Ling Tan',
-      headline: 'Backend Engineer, Sea Group',
-      candidatePhone: '+65 9134 0088',
-      candidateEmail: 'weiling.tan@example.com',
-      experience: '4 yrs',
-      location: 'Singapore',
-      skills: ['Java', 'Spring', 'MySQL'],
-      aiMatchScore: 83,
-      status: 'Interview Scheduled',
-      source: CandidateSource.applied,
-      lastActivity: DateTime.now().subtract(const Duration(hours: 6)),
-    ),
-    ApplicantModel(
-      id: 'cand-05',
-      jobId: 'emp-j1',
-      jobTitle: 'Senior Backend Engineer',
-      candidateName: 'Daniel Okonkwo',
-      headline: 'Platform Engineer, Flutterwave',
-      candidatePhone: '+234 803 221 4455',
-      candidateEmail: 'd.okonkwo@example.com',
-      experience: '7 yrs',
-      location: 'Remote',
-      skills: ['Go', 'gRPC', 'Postgres'],
-      aiMatchScore: 61,
-      status: 'Rejected',
-      source: CandidateSource.recommended,
-      lastActivity: DateTime.now().subtract(const Duration(days: 9)),
-      archiveReason: 'Salary expectation',
-      archivedAt: null,
-      archivedBy: 'You',
-    ),
-    ApplicantModel(
-      id: 'cand-06',
-      jobId: 'emp-j2',
-      jobTitle: 'Warehouse Supervisor',
-      candidateName: 'Santosh Kumar',
-      headline: 'Warehouse Team Lead, DB Schenker',
-      candidatePhone: '+91 94421 23456',
-      candidateEmail: 's.kumar@example.com',
-      experience: '3 yrs',
-      location: 'Singapore',
-      skills: ['WMS', 'Forklift', 'Inventory', 'Safety'],
-      aiMatchScore: 88,
-      status: 'Contacted',
-      source: CandidateSource.applied,
-      lastActivity: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-  ];
+  CompanyProfile _company = const CompanyProfile();
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isDarkMode => _isDarkMode;
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
-  String get companyName => _companyName;
-  String get phone => _phone;
-  List<EmployerJobModel> get jobs => _jobs;
-  List<ApplicantModel> get applicants => _applicants;
+  CompanyProfile get company => _company;
+
+  String get companyName =>
+      _company.name.isEmpty ? 'Your company' : _company.name;
+
+  /// Stable id for this company, minted on first use so a posting always has
+  /// something to join on later.
+  String get companyId {
+    if (_company.id.isNotEmpty) return _company.id;
+    final id = 'co-${DateTime.now().microsecondsSinceEpoch}';
+    _company = _company.copyWith(id: id);
+    return id;
+  }
+
+  /// Whether this company may publish and spend credits. See [CompanyStatus].
+  bool get canPost => _company.canPost;
+
+  /// Submits the registration for checking.
+  ///
+  /// Deliberately lands on [CompanyStatus.submitted] and stops there. The app
+  /// must never verify itself — that is the same lie as the old fake auth, and
+  /// an employer badge nobody checked is worse than no badge at all.
+  void submitForVerification() {
+    _company = _company.copyWith(
+      id: companyId,
+      status: CompanyStatus.submitted,
+      submittedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+  String get phone => _company.phone;
+
+  // ---------------------------------------------------------------------------
+  // Plan entitlements.
+  //
+  // Mirrored from the server for display only. Laravel must enforce these
+  // independently — a client that decides its own limits can be bypassed by
+  // anyone who can call the endpoint directly.
+  // ---------------------------------------------------------------------------
+
+  final int _contactCreditsTotal = 250;
+  int _contactCreditsUsed = 0;
+  final int _aiCreditsTotal = 100;
+  final int _aiCreditsUsed = 0;
+  final bool _aiEnabledOnPlan = true;
 
   int get contactCreditsTotal => _contactCreditsTotal;
   int get contactCreditsUsed => _contactCreditsUsed;
@@ -176,127 +85,371 @@ class EmployerProvider extends ChangeNotifier {
   int get aiCreditsUsed => _aiCreditsUsed;
   int get aiCreditsRemaining => _aiCreditsTotal - _aiCreditsUsed;
 
-  /// What the AI entry point should show. Three distinct states, because
-  /// "greyed out" without a reason is the most frustrating possible UI.
+  /// Subscription expiry, spec §38 and §78.
+  DateTime get subscriptionExpiry =>
+      DateTime.now().add(const Duration(days: 47));
+
+  /// Three distinct states rather than a greyed-out button. "Disabled" without
+  /// a reason is the most frustrating possible UI.
   AiAvailability get aiAvailability {
     if (!_aiEnabledOnPlan) return AiAvailability.disabled;
     if (aiCreditsRemaining <= 0) return AiAvailability.noCredits;
     return AiAvailability.live;
   }
 
-  /// Active (non-archived) candidates for a job, optionally filtered by source.
-  List<ApplicantModel> candidatesFor(String jobId, {CandidateSource? source}) => _applicants
-      .where((a) => a.jobId == jobId && !a.isArchived && (source == null || a.source == source))
-      .toList()
-    ..sort((a, b) => (b.aiMatchScore ?? -1).compareTo(a.aiMatchScore ?? -1));
+  // ---------------------------------------------------------------------------
+  // Jobs and candidates
+  // ---------------------------------------------------------------------------
 
-  /// Archived candidates for a job. Archiving is scoped to this company + job —
-  /// the candidate remains in the Lucky Boss database and can be restored.
-  List<ApplicantModel> archivedFor(String jobId) =>
-      _applicants.where((a) => a.jobId == jobId && a.isArchived).toList();
+  final List<EmployerJobModel> _jobs = [];
+  final List<Candidate> _pool = [];
+  final Map<String, List<String>> _notes = {};
+  final List<UploadedDocument> _documents = [];
 
-  int countFor(String jobId, {CandidateSource? source}) => candidatesFor(jobId, source: source).length;
+  List<EmployerJobModel> get jobs => List.unmodifiable(_jobs);
+
+  List<EmployerJobModel> get publishedJobs =>
+      _jobs.where((j) => j.status == JobStatus.published).toList();
+
+  EmployerJobModel? jobById(String id) {
+    for (final j in _jobs) {
+      if (j.id == id) return j;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persistence
+  // ---------------------------------------------------------------------------
+
+  Timer? _saveTimer;
+  bool _hydrated = false;
+
+  bool get isReady => _hydrated;
+
+  /// Reads everything back from the device and loads the candidate pool.
+  /// Call once at startup, before the first frame that shows jobs.
+  Future<void> hydrate() async {
+    if (_hydrated) return;
+    _hydrated = true;
+
+    final stored = await EmployerStore.loadCompany();
+    if (stored != null) _company = stored;
+
+    _jobs
+      ..clear()
+      ..addAll(await EmployerStore.loadJobs());
+
+    _notes.addAll(await EmployerStore.loadNotes());
+
+    _documents
+      ..clear()
+      ..addAll(await EmployerStore.loadDocuments());
+
+    _pool
+      ..clear()
+      ..addAll(await CandidatePoolService.fetch());
+
+    // Re-apply what this company had done with each candidate. Kept apart from
+    // the pool so refreshing candidates never wipes a recruiter's pipeline.
+    final state = await EmployerStore.loadCandidateState();
+    var revealed = 0;
+    for (final candidate in _pool) {
+      final saved = state[candidate.id];
+      if (saved is Map<String, dynamic>) {
+        candidate.applyState(saved);
+        if (candidate.contactRevealed && !candidate.source.contactAlwaysVisible) {
+          revealed++;
+        }
+      }
+    }
+    _contactCreditsUsed = revealed;
+
+    notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
+    // Nothing is worth writing before the stored copy has been read — saving
+    // first would overwrite the company's real data with the empty state the
+    // provider starts life holding.
+    if (!_hydrated) return;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 400), _saveNow);
+  }
+
+  Future<void> _saveNow() async {
+    await EmployerStore.saveCompany(_company);
+    await EmployerStore.saveJobs(_jobs);
+    await EmployerStore.saveNotes(_notes);
+    await EmployerStore.saveCandidateState({
+      for (final c in _pool)
+        if (_isTouched(c)) c.id: c.stateToJson(),
+    });
+  }
+
+  /// Only candidates the company has actually acted on are written. Storing all
+  /// 252 default rows would be a quarter-megabyte of "New" on every save.
+  bool _isTouched(Candidate c) =>
+      c.status != 'New' ||
+      c.isArchived ||
+      (c.contactRevealed && !c.source.contactAlwaysVisible);
+
+  Future<void> flush() async {
+    _saveTimer?.cancel();
+    if (_hydrated) await _saveNow();
+  }
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // SPEC §14–16 — the three candidate tables
+  //
+  // Not three lists but three views of one pool, differing by where the
+  // candidate came from:
+  //
+  //   1. Organic   — applied to this job directly.
+  //   2. Recommended — already in the Lucky Boss database and a good fit; they
+  //                    have not applied, and the employer needs a credit to
+  //                    contact them.
+  //   3. External  — from an authorised partner feed or an import. The source
+  //                  name is mandatory; the spec says not to hide where a
+  //                  candidate came from.
+  // ---------------------------------------------------------------------------
+
+  /// Candidates for a job, best match first.
+  ///
+  /// The pool is the whole database, so it is matched down rather than filtered
+  /// by a stored job id — that is what "Lucky Boss recommended" means, and it
+  /// is why a newly posted vacancy has candidates against it immediately
+  /// instead of an empty table and a wait.
+  List<Candidate> candidatesFor(
+    String jobId, {
+    CandidateSource? source,
+    double minimumMatch = 35,
+  }) {
+    final job = jobById(jobId);
+    if (job == null) return const [];
+
+    final scored = _pool
+        .where((c) => !c.isArchived)
+        .where((c) => source == null || c.source == source)
+        // Somebody in another country who needs sponsoring for a job that does
+        // not offer it is not a candidate, and putting them in the table wastes
+        // a recruiter's attention.
+        .where((c) =>
+            c.countryCode == job.countryCode ||
+            job.permitSponsored ||
+            c.workPermitStatus == 'Citizen')
+        .map((c) => (candidate: c, score: c.matchFor(job)))
+        .where((e) => e.score >= minimumMatch)
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    return scored.map((e) => e.candidate).toList();
+  }
+
+  /// Archived candidates for a job. Archiving is scoped to this company and job
+  /// — the candidate stays in the Lucky Boss database and can be restored.
+  List<Candidate> archivedFor(String jobId) {
+    final job = jobById(jobId);
+    if (job == null) return const [];
+    return _pool
+        .where((c) => c.isArchived && c.matchFor(job) >= 35)
+        .toList();
+  }
+
+  int countFor(String jobId, {CandidateSource? source}) =>
+      candidatesFor(jobId, source: source).length;
+
+  double matchFor(Candidate candidate, String jobId) {
+    final job = jobById(jobId);
+    return job == null ? 0 : candidate.matchFor(job);
+  }
+
+  /// The whole pool, for the assistant to count from. Read-only.
+  List<Candidate> get allCandidates => List.unmodifiable(_pool);
+
+  Candidate? candidateById(String id) {
+    for (final c in _pool) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // SPEC §78 — dashboard
+  // ---------------------------------------------------------------------------
+
+  int get activeJobsCount => publishedJobs.length;
+
+  int get newApplicantsCount => _countAcrossJobs(
+        (c) => c.source == CandidateSource.applied && c.status == 'New',
+      );
+
+  int get recommendedCount => _countAcrossJobs(
+        (c) => c.source == CandidateSource.recommended,
+      );
+
+  int get interviewsCount =>
+      _countAcrossJobs((c) => c.status == CandidateStages.interview);
+
+  int get offersPendingCount =>
+      _countAcrossJobs((c) => c.status == CandidateStages.offered);
+
+  int get hiredCount => _countAcrossJobs((c) => c.status == CandidateStages.hired);
+
+  /// Counts distinct candidates matching [test] across every published job, so
+  /// somebody who fits two vacancies is not counted twice.
+  int _countAcrossJobs(bool Function(Candidate) test) {
+    final seen = <String>{};
+    for (final job in publishedJobs) {
+      for (final candidate in candidatesFor(job.id)) {
+        if (test(candidate)) seen.add(candidate.id);
+      }
+    }
+    return seen.length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
 
   void toggleDarkMode(bool val) {
     _isDarkMode = val;
     notifyListeners();
   }
 
-  void setAuthenticated(bool val, {String? phone}) {
+  void setAuthenticated(bool val) {
     _isAuthenticated = val;
-    if (phone != null) _phone = phone;
     notifyListeners();
   }
 
-  void updateApplicantStatus(String applicantId, String newStatus) {
-    final idx = _applicants.indexWhere((a) => a.id == applicantId);
-    if (idx != -1) {
-      _applicants[idx].status = newStatus;
-      notifyListeners();
-    }
+  void updateCompany(CompanyProfile company) {
+    _company = company;
+    notifyListeners();
+  }
+
+  void setCandidateStatus(String candidateId, String status) {
+    candidateById(candidateId)?.status = status;
+    notifyListeners();
   }
 
   /// Spends one contact credit to reveal a candidate's phone and email.
-  /// Returns false when there are no credits left, so the caller can say why
-  /// instead of silently doing nothing.
   ///
-  /// The server must charge the credit too — this only updates what is shown.
-  bool revealContact(String applicantId) {
-    final idx = _applicants.indexWhere((a) => a.id == applicantId);
-    if (idx == -1) return false;
-    if (_applicants[idx].contactRevealed) return true;
+  /// Returns false when there are none left, so the caller can say why rather
+  /// than silently doing nothing. The server must charge the credit too — this
+  /// only changes what is shown.
+  bool revealContact(String candidateId) {
+    final candidate = candidateById(candidateId);
+    if (candidate == null) return false;
+    if (candidate.contactRevealed) return true;
+    // An unverified company may look, but not reach out. Handing a candidate's
+    // number to a business nobody has checked is the risk this agency exists to
+    // remove.
+    if (!canPost && !candidate.source.contactAlwaysVisible) return false;
     if (contactCreditsRemaining <= 0) return false;
 
-    _applicants[idx].contactRevealed = true;
+    candidate.contactRevealed = true;
     _contactCreditsUsed += 1;
     notifyListeners();
     return true;
   }
 
-  void archiveCandidate(String applicantId, String reason, {String by = 'You'}) {
-    final idx = _applicants.indexWhere((a) => a.id == applicantId);
-    if (idx == -1) return;
-    _applicants[idx]
+  void archiveCandidate(String candidateId, String reason, {String by = 'You'}) {
+    final candidate = candidateById(candidateId);
+    if (candidate == null) return;
+    candidate
       ..archiveReason = reason
       ..archivedAt = DateTime.now()
       ..archivedBy = by;
     notifyListeners();
   }
 
-  void restoreCandidate(String applicantId) {
-    final idx = _applicants.indexWhere((a) => a.id == applicantId);
-    if (idx == -1) return;
-    _applicants[idx]
+  void restoreCandidate(String candidateId) {
+    final candidate = candidateById(candidateId);
+    if (candidate == null) return;
+    candidate
       ..archiveReason = null
       ..archivedAt = null
       ..archivedBy = null;
     notifyListeners();
   }
 
-  void postNewJob({
-    required String title,
-    required String category,
-    required String location,
-    required String minSalary,
-    required String maxSalary,
-    required String currency,
-    String countryCode = 'SG',
-    String workMode = 'On-site',
-    String description = '',
-    List<String> requiredSkills = const [],
-    String experienceLevel = 'Mid Level',
-    String jobType = 'Full-Time',
-  }) {
-    _jobs.insert(
-      0,
-      EmployerJobModel(
-        id: 'emp-j${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        category: category,
-        location: location,
-        countryCode: countryCode,
-        salaryDisplay: '$currency $minSalary - $maxSalary / mo',
-        applicantsCount: 0,
-        status: 'published',
-        postedDate: DateTime.now(),
-      ),
-    );
-    notifyListeners();
+  // --------------------------------------------------------- notes, spec §75
 
-    // NOTE: this currently fails silently. EmployerApiService posts to
-    // POST /api/v1/jobs, which is not a registered route — routes/api.php only
-    // registers GET /jobs and GET /jobs/{job}. The job is created in local state
-    // and never reaches the backend. Needs a real endpoint before launch.
-    EmployerApiService.postJobToBackend(
-      title: title,
-      category: category,
-      location: location,
-      minSalary: minSalary,
-      maxSalary: maxSalary,
-      currency: currency,
-      countryCode: countryCode,
-      workMode: workMode,
-      description: description,
-    );
+  List<String> notesFor(String candidateId) => _notes[candidateId] ?? const [];
+
+  void addNote(String candidateId, String note) {
+    final trimmed = note.trim();
+    if (trimmed.isEmpty) return;
+    _notes.putIfAbsent(candidateId, () => []).add(trimmed);
+    notifyListeners();
+  }
+
+  // -------------------------------------------------------------------- jobs
+
+  void postJob(EmployerJobModel job) {
+    _jobs.insert(0, job);
+    notifyListeners();
+  }
+
+  void updateJob(EmployerJobModel job) {
+    final index = _jobs.indexWhere((j) => j.id == job.id);
+    if (index == -1) return;
+    _jobs[index] = job;
+    notifyListeners();
+  }
+
+  void setJobStatus(String jobId, JobStatus status) {
+    final index = _jobs.indexWhere((j) => j.id == jobId);
+    if (index == -1) return;
+    _jobs[index] = _jobs[index].copyWith(status: status);
+    notifyListeners();
+  }
+
+  void deleteJob(String jobId) {
+    _jobs.removeWhere((j) => j.id == jobId);
+    notifyListeners();
+  }
+
+  // --------------------------------------------------------------- documents
+
+  List<UploadedDocument> get documents => List.unmodifiable(_documents);
+
+  Future<void> addDocument(UploadedDocument document) async {
+    _documents.removeWhere((d) => d.id == document.id);
+    _documents.add(document);
+    await EmployerStore.saveDocuments(_documents);
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    _saveTimer?.cancel();
+    await EmployerStore.clearAll();
+    _isAuthenticated = false;
+    _company = const CompanyProfile();
+    _jobs.clear();
+    _notes.clear();
+    _documents.clear();
+    for (final candidate in _pool) {
+      candidate
+        ..status = 'New'
+        ..contactRevealed = candidate.source.contactAlwaysVisible
+        ..archiveReason = null
+        ..archivedAt = null
+        ..archivedBy = null;
+    }
+    _contactCreditsUsed = 0;
+    notifyListeners();
   }
 }

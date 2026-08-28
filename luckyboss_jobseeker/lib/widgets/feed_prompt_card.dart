@@ -25,11 +25,13 @@ class FeedPromptCard extends StatefulWidget {
 
 class _FeedPromptCardState extends State<FeedPromptCard> {
   final TextEditingController _number = TextEditingController();
+  final FocusNode _numberFocus = FocusNode();
   final Set<String> _multi = {};
 
   @override
   void dispose() {
     _number.dispose();
+    _numberFocus.dispose();
     super.dispose();
   }
 
@@ -151,37 +153,59 @@ class _FeedPromptCardState extends State<FeedPromptCard> {
         );
 
       case PromptKind.number:
-        return Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _number,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => setState(() {}),
-                style: AppTheme.sansSemiBold(
-                    fontSize: 15, color: AppTheme.inkOf(context)),
-                decoration: InputDecoration(
-                  hintText: 'Amount per month',
-                  hintStyle: AppTheme.sansRegular(
-                      fontSize: 14, color: AppTheme.inkFaintOf(context)),
-                  filled: true,
-                  fillColor: Theme.of(context).cardColor,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 13),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+        // Listens to the controller instead of calling setState on every
+        // keystroke. The old version rebuilt this whole card as the candidate
+        // typed, inside a feed that rebuilds on every provider notification —
+        // between the two, the field kept losing focus and the answer could not
+        // be entered at all.
+        return ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _number,
+          builder: (context, value, _) {
+            final entered = value.text.trim();
+            return Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _number,
+                    focusNode: _numberFocus,
+                    keyboardType: TextInputType.number,
+                    // Submitting from the keyboard saves and closes it, rather
+                    // than leaving the candidate to find a button behind it.
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (v) {
+                      if (v.trim().isEmpty) return;
+                      _numberFocus.unfocus();
+                      _answer(v.trim());
+                    },
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: AppTheme.sansSemiBold(
+                        fontSize: 15, color: AppTheme.inkOf(context)),
+                    decoration: InputDecoration(
+                      hintText: 'Amount per month',
+                      hintStyle: AppTheme.sansRegular(
+                          fontSize: 14, color: AppTheme.inkFaintOf(context)),
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 13),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 9),
-            _save(
-              _number.text.trim().isEmpty ? null : () => _answer(_number.text.trim()),
-            ),
-          ],
+                const SizedBox(width: 9),
+                _save(entered.isEmpty
+                    ? null
+                    : () {
+                        _numberFocus.unfocus();
+                        _answer(entered);
+                      }),
+              ],
+            );
+          },
         );
     }
   }

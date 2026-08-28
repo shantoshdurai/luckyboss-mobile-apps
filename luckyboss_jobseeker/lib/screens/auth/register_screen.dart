@@ -286,7 +286,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ValueChanged<String>? onChanged,
   }) {
     return TextField(
-      controller: controller,
+            textInputAction: TextInputAction.done,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+controller: controller,
       enabled: !_busy,
       obscureText: obscure,
       keyboardType: keyboardType,

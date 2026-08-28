@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/api_config.dart';
 import 'auth_service.dart';
+import 'document_service.dart';
 
 /// What the parser found. Every field may be empty — the server is instructed
 /// never to invent a value, so a blank means the resume did not state it.
@@ -102,7 +103,17 @@ class ResumeService {
   /// uploading four megabytes over mobile data to be refused on arrival.
   static const int maxBytes = 4 * 1024 * 1024;
 
-  static Future<ResumeResult> pickAndParse() async {
+  /// Parses a resume, picking one first when the caller has not already.
+  ///
+  /// [alreadyPicked] lets a caller that has just stored the document hand the
+  /// same bytes straight through, rather than making the candidate choose the
+  /// file twice. That is the profile screen's path now: the resume is kept
+  /// first, and parsing is an optional extra on top of it.
+  static Future<ResumeResult> pickAndParse({PickedFile? alreadyPicked}) async {
+    if (alreadyPicked != null) {
+      return _upload(alreadyPicked.bytes, alreadyPicked.fileName);
+    }
+
     FilePickerResult? picked;
     try {
       picked = await FilePicker.platform.pickFiles(

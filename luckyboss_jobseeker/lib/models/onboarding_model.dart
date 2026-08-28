@@ -1,3 +1,5 @@
+import '../core/constants/app_data.dart';
+
 /// Which branch of onboarding a candidate takes.
 ///
 /// This is the first question asked, because almost everything after it
@@ -49,6 +51,75 @@ enum Qualification {
 /// only when the candidate finishes, so a half-completed wizard never leaves
 /// the profile in a partially-overwritten state.
 class OnboardingData {
+  // ---------------------------------------------------------------------------
+  // THE FIRST QUESTION — what kind of work?
+  //
+  // Everything else branches off this. Lucky Boss places construction workers,
+  // factory labour, warehouse manpower, drivers, domestic helpers and service
+  // staff alongside engineers and office roles, and the two groups need almost
+  // no questions in common. Asking a scaffolder for their highest qualification
+  // and a list of key skills produces an empty profile; asking a software
+  // engineer for their forklift licence is equally useless.
+  //
+  // So the category is chosen first, and [WorkPath] on it decides which
+  // questions follow.
+  // ---------------------------------------------------------------------------
+  /// Kinds of work the candidate will take, best first.
+  ///
+  /// A general worker takes construction or warehouse; a driver will do
+  /// delivery or logistics. Forcing one answer halves the feed we can build for
+  /// them. Capped at three — past that they are saying "anything", and the
+  /// match score stops discriminating between jobs at all.
+  final List<String> categories = [];
+
+  static const int maxCategories = 3;
+
+  /// The primary choice, which decides the shape of the rest of the wizard.
+  String get category => categories.isEmpty ? '' : categories.first;
+
+  bool get canAddCategory => categories.length < maxCategories;
+
+  /// Adds or removes a category, keeping the first-chosen one primary.
+  void toggleCategory(String name) {
+    if (categories.remove(name)) return;
+    if (!canAddCategory) return;
+    categories.add(name);
+  }
+
+  WorkCategory? get workCategory => AppData.categoryByName(category);
+
+  /// True when this candidate should be asked about trades, licences and wages
+  /// rather than qualifications and key skills.
+  bool get isFieldWork => workCategory?.isField ?? false;
+
+  /// The trade or job title, picked from the category's own list. On the field
+  /// path this stands in for the whole "key skills" idea: a candidate taps
+  /// "Plumber" and the app knows more about them than a chip field would ever
+  /// have got out of them.
+  String roleTitle = '';
+
+  /// Years doing this trade. Plain count rather than a banded seniority label —
+  /// "Lead / Principal (10+ yrs)" means nothing on a building site.
+  int yearsInTrade = 0;
+
+  /// Licences, cards and certificates. For several field categories this is the
+  /// single most valuable thing on the profile.
+  final Set<String> certificates = {};
+
+  /// Languages spoken — spec section 31, and often the deciding factor for
+  /// domestic, care and service placements.
+  final Set<String> languages = {};
+
+  /// Work authorisation as a stated status rather than a yes/no. "Need employer
+  /// to sponsor a permit" is a completely different proposition to an employer
+  /// than "have a valid work permit", and a boolean cannot tell them apart.
+  String workPermitStatus = '';
+
+  /// Whether [expectedSalary] is a daily, monthly or yearly figure. A site
+  /// worker quotes a day rate; showing them a monthly field invites either a
+  /// blank or a number nobody can interpret.
+  String payPeriod = 'Per month';
+
   CandidateTrack? track;
   String currentCity = '';
 
@@ -69,7 +140,13 @@ class OnboardingData {
 
   // Preferences — the constraints that make a match actionable rather than
   // merely plausible. Fed to the matching engine, not collected for its own sake.
-  String preferredCountry = '';
+  /// Markets the candidate will work in. A set because more than one is the
+  /// normal answer for a cross-border agency.
+  final Set<String> preferredCountries = {};
+
+  /// First choice, for the profile fields that still take one market.
+  String get preferredCountry =>
+      preferredCountries.isEmpty ? '' : preferredCountries.first;
   final Set<String> workModes = {};
   final Set<String> jobTypes = {};
   String expectedSalary = '';
@@ -98,6 +175,16 @@ class OnboardingData {
   String get skillSeedContext =>
       currentTitle.isNotEmpty ? currentTitle : (course.isNotEmpty ? course : '');
 
+  bool get categoryStepComplete => categories.isNotEmpty;
+
+  /// The trade step needs a role and nothing more. Years, abilities and cards
+  /// all sharpen the profile, but holding somebody at the second screen of an
+  /// app because they have not ticked a certificate is how onboarding gets
+  /// abandoned.
+  bool get tradeStepComplete => roleTitle.trim().isNotEmpty;
+
+  bool get fieldDetailsStepComplete => currentCity.trim().isNotEmpty;
+
   bool get trackStepComplete => track != null && currentCity.trim().isNotEmpty;
 
   bool get educationStepComplete {
@@ -117,5 +204,5 @@ class OnboardingData {
 
   /// Only the market is required. The rest sharpen matching, and a candidate
   /// who wants to get to the job list should not be held at a preferences form.
-  bool get preferencesStepComplete => preferredCountry.isNotEmpty;
+  bool get preferencesStepComplete => preferredCountries.isNotEmpty;
 }

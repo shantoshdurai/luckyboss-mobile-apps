@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -240,16 +243,7 @@ class _ProfilePhotoAvatarState extends State<ProfilePhotoAvatar> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: hasPhoto
-                    ? Image.network(
-                        photoUrl,
-                        fit: BoxFit.cover,
-                        // A photo that fails to load must not leave a blank
-                        // square — fall back to the initials that would have
-                        // been there anyway.
-                        errorBuilder: (context, error, stack) => _initialsBlock(profile.name),
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null ? child : _initialsBlock(profile.name),
-                      )
+                    ? _photo(photoUrl, profile.name)
                     : _initialsBlock(profile.name),
               ),
               if (_busy)
@@ -294,6 +288,38 @@ class _ProfilePhotoAvatarState extends State<ProfilePhotoAvatar> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Renders the photo from wherever it is held.
+  ///
+  /// A photo saved on this device is a `data:` URI, and `Image.network` cannot
+  /// read one on Android or iOS — it treats it as a URL and fails. So the two
+  /// cases are split explicitly rather than hoping one widget covers both.
+  Widget _photo(String url, String name) {
+    if (url.startsWith('data:')) {
+      final comma = url.indexOf(',');
+      if (comma == -1) return _initialsBlock(name);
+      try {
+        final Uint8List bytes = base64Decode(url.substring(comma + 1));
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stack) => _initialsBlock(name),
+        );
+      } catch (_) {
+        return _initialsBlock(name);
+      }
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      // A photo that fails to load must not leave a blank square — fall back
+      // to the initials that would have been there anyway.
+      errorBuilder: (context, error, stack) => _initialsBlock(name),
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : _initialsBlock(name),
     );
   }
 

@@ -36,13 +36,32 @@ class AuthSession {
   /// which is the check that actually matters.
   final bool isDemo;
 
+  /// True when this account exists only on this handset because no Lucky Boss
+  /// server answered. It is a real, durable account from the candidate's point
+  /// of view — it survives restarts and owns their profile — but its [token] was
+  /// never issued by Sanctum, so no authenticated API call may be attempted with
+  /// it. Services check this instead of attaching an Authorization header that
+  /// would only ever come back 401.
+  final bool isLocal;
+
   const AuthSession({
     required this.token,
     required this.name,
     required this.email,
     this.phone,
     this.isDemo = false,
+    this.isLocal = false,
   });
+
+  AuthSession copyWith({String? name, String? email, String? phone}) =>
+      AuthSession(
+        token: token,
+        name: name ?? this.name,
+        email: email ?? this.email,
+        phone: phone ?? this.phone,
+        isDemo: isDemo,
+        isLocal: isLocal,
+      );
 
   Map<String, dynamic> toJson() => {
         'token': token,
@@ -50,6 +69,7 @@ class AuthSession {
         'email': email,
         'phone': phone,
         'is_demo': isDemo,
+        'is_local': isLocal,
       };
 
   factory AuthSession.fromJson(Map<String, dynamic> j) => AuthSession(
@@ -58,6 +78,7 @@ class AuthSession {
         email: (j['email'] ?? '') as String,
         phone: j['phone'] as String?,
         isDemo: (j['is_demo'] ?? false) as bool,
+        isLocal: (j['is_local'] ?? false) as bool,
       );
 }
 
@@ -70,8 +91,17 @@ class AuthSession {
 /// production path behind it — there was no production path.
 ///
 /// What is real here: every method below performs an HTTP round trip to
-/// Laravel and fails closed. There is no offline success path. If the server
-/// is unreachable the user is told so and stays signed out.
+/// Laravel first. When the server answers, the session it returns is the
+/// session, and the token is a genuine Sanctum token.
+///
+/// When no server answers, the app does not pretend one did. It creates an
+/// **on-device account** instead: a durable record on this handset, marked
+/// `isLocal`, that owns the candidate's profile and survives restarts. That is
+/// the deliberate product decision for the standalone APK — the app must be
+/// usable with nothing behind it. What must never happen again is the middle
+/// state the previous version shipped, where an offline sign-in reported
+/// success but wrote nothing, so the account evaporated on the next launch.
+/// A local token is never sent to a server; see [authHeaders].
 ///
 /// Phone OTP is deliberately NOT implemented as a local shortcut. See
 /// [sendPhoneOtp] for why, and for what has to be true before it can work.
@@ -116,16 +146,13 @@ class AuthService {
       onInvalid: 'That email and password do not match an account.',
     );
     if (result.success) return result;
-    if (email.isNotEmpty && password.isNotEmpty) {
-      return AuthResult.ok(AuthSession(
-        token: 'local-email-session',
-        name: email.split('@').first,
-        email: email,
-        phone: '+919876543210',
-        isDemo: false,
-      ));
-    }
-    return result;
+    if (email.trim().isEmpty || password.isEmpty) return result;
+    return _persistLocal(AuthSession(
+      token: _localToken(),
+      name: email.split('@').first,
+      email: email.trim(),
+      isLocal: true,
+    ));
   }
 
   /// Registers a new candidate via `POST /api/v1/auth/job-seekers/register`.
@@ -148,12 +175,12 @@ class AuthService {
       onInvalid: 'Check the details above and try again.',
     );
     if (result.success) return result;
-    return AuthResult.ok(AuthSession(
-      token: 'local-reg-session',
-      name: name,
-      email: email,
-      phone: phone,
-      isDemo: false,
+    return _persistLocal(AuthSession(
+      token: _localToken(),
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      isLocal: true,
     ));
   }
 
@@ -175,14 +202,16 @@ class AuthService {
       ));
     }
 
-    // Offline Demo Fallback: Allows testing the full UI, jobs feed, and profile
-    // seamlessly on any handset without requiring a local Laravel server.
-    return const AuthResult.ok(AuthSession(
+    // Offline demo fallback: lets the whole UI, job feed and profile be walked
+    // through on a handset with no Laravel server behind it. The name is left
+    // blank deliberately — inventing one put a fictional candidate on screen and
+    // made the app look like it was showing someone else's data.
+    return _persistLocal(const AuthSession(
       token: 'demo-offline-token',
-      name: 'Santosh Durai',
+      name: '',
       email: 'candidate@luckyboss.test',
-      phone: '+919876543210',
       isDemo: true,
+      isLocal: true,
     ));
   }
 
@@ -208,13 +237,15 @@ class AuthService {
         if (res.success) return res;
       } catch (_) {}
     }
-    // Instant OTP simulation for standalone preview
+    // Standalone preview: there is no SMS to send, so the code screen accepts
+    // what the candidate types. Nothing is persisted here — a session is only
+    // created once [exchangeFirebaseToken] runs, otherwise merely reaching the
+    // OTP screen would sign somebody in.
     return AuthResult.ok(AuthSession(
       token: 'pending-otp-token',
       name: '',
       email: '',
       phone: fullPhoneNumber,
-      isDemo: false,
     ));
   }
 
@@ -231,13 +262,16 @@ class AuthService {
       } catch (_) {}
     }
 
-    // Offline OTP verification success
-    return AuthResult.ok(AuthSession(
-      token: 'standalone-phone-session',
+    // Offline verification: the account lives on this handset. It must be
+    // written to storage here — this is the moment the candidate becomes signed
+    // in, and skipping it is what used to throw them back to the sign-in screen
+    // on the next launch and break the profile photo.
+    return _persistLocal(AuthSession(
+      token: _localToken(),
       name: '',
       email: '',
-      phone: phone ?? '+919876543210',
-      isDemo: false,
+      phone: phone,
+      isLocal: true,
     ));
   }
 
@@ -313,6 +347,37 @@ class AuthService {
     return null;
   }
 
+  /// A token for an on-device account. Deliberately prefixed so it can never be
+  /// mistaken for a Sanctum token, and unique per account so two local sign-ins
+  /// on one handset do not collide.
+  static String _localToken() =>
+      'local-${DateTime.now().microsecondsSinceEpoch}';
+
+  /// Saves an on-device session and returns it as a success.
+  ///
+  /// The bug this exists to prevent: `_persist` used to be reachable only from
+  /// [_post], so every offline sign-in returned `AuthResult.ok` while writing
+  /// nothing. The app looked signed in until it was closed, and any call to
+  /// [authHeaders] found no session — which is why updating the profile photo
+  /// answered "Please sign in again to update your photo".
+  static Future<AuthResult> _persistLocal(AuthSession session) async {
+    await _persist(session);
+    return AuthResult.ok(session);
+  }
+
+  /// Updates the stored name/email/phone on the signed-in session, so what the
+  /// candidate enters during onboarding is reflected everywhere the session is
+  /// read. No-op when signed out.
+  static Future<void> updateIdentity({
+    String? name,
+    String? email,
+    String? phone,
+  }) async {
+    final s = await currentSession();
+    if (s == null) return;
+    await _persist(s.copyWith(name: name, email: email, phone: phone));
+  }
+
   static Future<void> _persist(AuthSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionKey, jsonEncode(session.toJson()));
@@ -346,9 +411,14 @@ class AuthService {
     final s = await currentSession();
     return {
       'Accept': 'application/json',
-      if (s != null) 'Authorization': 'Bearer ${s.token}',
+      if (s != null && !s.isLocal) 'Authorization': 'Bearer ${s.token}',
     };
   }
+
+  /// True when the signed-in account exists only on this handset, so callers
+  /// know to save locally rather than report a server failure to the user.
+  static Future<bool> isLocalAccount() async =>
+      (await currentSession())?.isLocal ?? false;
 
   static Future<bool> isProfileComplete() async {
     final prefs = await SharedPreferences.getInstance();
