@@ -282,6 +282,14 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
           borderRadius: BorderRadius.circular(13),
           borderSide: BorderSide.none,
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide.none,
+        ),
       ),
     );
   }
