@@ -30,6 +30,17 @@ class JobFilters {
     this.experience,
   });
 
+  /// Drops the experience filter.
+  ///
+  /// A separate method because `copyWith` cannot express "set this to null" —
+  /// a null argument there means "leave unchanged", which is exactly what a
+  /// clear button must not do.
+  JobFilters clearExperience() => JobFilters(
+        workModes: workModes,
+        categories: categories,
+        countries: countries,
+      );
+
   int get activeCount =>
       workModes.length +
       categories.length +
@@ -793,9 +804,44 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   children: [
-                    _filterChip('Work mode', _filters.workModes.isNotEmpty),
-                    _filterChip('Category', _filters.categories.isNotEmpty),
-                    _filterChip('Location', _filters.countries.isNotEmpty),
+                    // Each chip carries its own icon and, once set, its own
+                    // value and its own clear button.
+                    //
+                    // They were three identical pills reading "Work mode",
+                    // "Category", "Location" with the same chevron, all opening
+                    // the same sheet, and once one was set there was no way to
+                    // undo just that one. Shantosh: *"everything looks the same
+                    // … just pressing a button it sorted, I can't clear it."*
+                    _filterChip(
+                      icon: Icons.business_center_outlined,
+                      label: 'Work mode',
+                      values: _filters.workModes,
+                      onClear: () => setState(() =>
+                          _filters = _filters.copyWith(workModes: const {})),
+                    ),
+                    _filterChip(
+                      icon: Icons.category_outlined,
+                      label: 'Category',
+                      values: _filters.categories,
+                      onClear: () => setState(() =>
+                          _filters = _filters.copyWith(categories: const {})),
+                    ),
+                    _filterChip(
+                      icon: Icons.place_outlined,
+                      label: 'Location',
+                      values: _filters.countries,
+                      onClear: () => setState(() =>
+                          _filters = _filters.copyWith(countries: const {})),
+                    ),
+                    _filterChip(
+                      icon: Icons.timeline_outlined,
+                      label: 'Experience',
+                      values: {
+                        if (_filters.experience != null) _filters.experience!
+                      },
+                      onClear: () => setState(
+                          () => _filters = _filters.clearExperience()),
+                    ),
                     if (!_filters.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -822,40 +868,99 @@ class _JobSearchScreenState extends State<JobSearchScreen> {
     );
   }
 
-  Widget _filterChip(String label, bool active) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-        child: InkWell(
-          onTap: _openFilterSheet,
+  /// One filter, showing what it is set to and how to unset it.
+  ///
+  /// An unset chip reads as its category with a chevron; a set one reads as the
+  /// chosen value with an ×. That is the difference between a row of buttons
+  /// and a row of answers, and it is what makes the bar scannable at a glance
+  /// rather than something to be decoded.
+  Widget _filterChip({
+    required IconData icon,
+    required String label,
+    required Set<String> values,
+    required VoidCallback onClear,
+  }) {
+    final active = values.isNotEmpty;
+    // The value itself when there is one, a count when there are several —
+    // "On-site" is more use than "Work mode", and "2 categories" is more use
+    // than either when two are picked.
+    final text = !active
+        ? label
+        : (values.length == 1
+            ? values.first
+            : '${values.length} ${label.toLowerCase()}s');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: active ? AppTheme.signalPositiveWash : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: active ? AppTheme.signalPositiveWash : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: active
-                    ? AppTheme.signalPositive
-                    : Theme.of(context).dividerColor,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label,
-                    style: AppTheme.sansMedium(
-                        fontSize: 13,
-                        color: active
-                            ? AppTheme.signalPositive
-                            : AppTheme.inkOf(context))),
-                const SizedBox(width: 4),
-                Icon(Icons.expand_more,
-                    size: 15,
-                    color: active ? AppTheme.signalPositive : AppTheme.inkFaintOf(context)),
-              ],
-            ),
+          border: Border.all(
+            color: active
+                ? AppTheme.signalPositive
+                : Theme.of(context).dividerColor,
           ),
         ),
-      );
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: _openFilterSheet,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 8, active ? 6 : 10, 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon,
+                        size: 14,
+                        color: active
+                            ? AppTheme.signalPositive
+                            : AppTheme.inkMutedOf(context)),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 130),
+                      child: Text(text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: active
+                              ? AppTheme.sansBold(
+                                  fontSize: 13,
+                                  color: AppTheme.signalPositive)
+                              : AppTheme.sansMedium(
+                                  fontSize: 13,
+                                  color: AppTheme.inkOf(context))),
+                    ),
+                    if (!active) ...[
+                      const SizedBox(width: 3),
+                      Icon(Icons.expand_more,
+                          size: 15, color: AppTheme.inkFaintOf(context)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            // Clears this one filter. "Clear all" was the only way out before,
+            // so narrowing to the wrong category meant starting the search over.
+            if (active)
+              InkWell(
+                onTap: () {
+                  onClear();
+                  if (_searched) _runSearch();
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 8, 10, 8),
+                  child: Icon(Icons.close,
+                      size: 14, color: AppTheme.signalPositive),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _openFilterSheet() {
     showModalBottomSheet<void>(

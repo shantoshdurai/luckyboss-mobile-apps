@@ -17,18 +17,13 @@ import '../../../core/theme/app_theme.dart';
 /// every other kind of worker, before they had answered a single question, that
 /// this app was not built for them.
 class WorkCategoryStep extends StatelessWidget {
-  /// Every kind of work the candidate will take, first one primary.
-  final List<String> selected;
+  final String selected;
   final ValueChanged<String> onChanged;
-
-  /// How many they may pick.
-  final int maxSelections;
 
   const WorkCategoryStep({
     super.key,
     required this.selected,
     required this.onChanged,
-    this.maxSelections = 3,
   });
 
   @override
@@ -42,11 +37,8 @@ class WorkCategoryStep extends StatelessWidget {
             style: AppTheme.serifTitle(fontSize: 26, color: AppTheme.inkOf(context))),
         const SizedBox(height: 6),
         Text(
-          selected.isEmpty
-              ? 'Pick the one closest to your work. You can add up to '
-                  '$maxSelections if you would take more than one.'
-              : 'Add another if you would take that work too — '
-                  '${selected.length} of $maxSelections chosen.',
+          'Pick the one closest to your work. The next questions are about it, '
+          'and you can add other kinds of work later from your profile.',
           style: AppTheme.sansRegular(
               fontSize: 14, color: AppTheme.inkMutedOf(context)),
         ),
@@ -65,19 +57,11 @@ class WorkCategoryStep extends StatelessWidget {
           ),
           itemBuilder: (context, i) {
             final category = categories[i];
-            final isSelected = selected.contains(category.name);
-            // Full, and this one is not already in — greyed rather than hidden,
-            // so it is obvious the limit is the reason and not a bug.
-            final blocked = !isSelected && selected.length >= maxSelections;
 
             return _CategoryTile(
               category: category,
-              selected: isSelected,
-              // The first choice decides which questions come next, so it is
-              // worth showing which one that is.
-              primary: selected.isNotEmpty && selected.first == category.name,
-              blocked: blocked,
-              onTap: blocked ? null : () => onChanged(category.name),
+              selected: category.name == selected,
+              onTap: () => onChanged(category.name),
             );
           },
         ),
@@ -89,10 +73,8 @@ class WorkCategoryStep extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                selected.length >= maxSelections
-                    ? 'That is the most you can pick. Tap one again to swap it.'
-                    : 'Not sure? Choose the closest one — jobs from every '
-                        'category still show in search.',
+                'Not sure? Choose the closest one — jobs from every category '
+                'still show in search.',
                 style: AppTheme.sansRegular(
                     fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
               ),
@@ -107,21 +89,12 @@ class WorkCategoryStep extends StatelessWidget {
 class _CategoryTile extends StatelessWidget {
   final WorkCategory category;
   final bool selected;
-
-  /// The first choice, which decides the rest of the wizard's questions.
-  final bool primary;
-
-  /// Unselectable because the limit is reached.
-  final bool blocked;
-
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   const _CategoryTile({
     required this.category,
     required this.selected,
     required this.onTap,
-    this.primary = false,
-    this.blocked = false,
   });
 
   @override
@@ -149,7 +122,7 @@ class _CategoryTile extends StatelessWidget {
             ),
           ),
           child: Opacity(
-            opacity: blocked ? 0.4 : 1,
+            opacity: 1,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -175,9 +148,6 @@ class _CategoryTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (primary)
-                  Text('Main work',
-                      style: AppTheme.sansMedium(fontSize: 10, color: accent)),
               ],
             ),
           ),

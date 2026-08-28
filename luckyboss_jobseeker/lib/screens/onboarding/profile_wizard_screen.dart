@@ -151,6 +151,13 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
       openToRelocate: _data.openToRelocate,
       hasWorkPermit: _data.hasWorkPermit,
     );
+    // Documents picked during the wizard are attached now, not while the
+    // candidate was still filling it in — an abandoned form should leave
+    // nothing behind on the profile.
+    for (final document in _data.uploadedProof) {
+      await provider.addDocument(document);
+    }
+
     await provider.completeProfileSetup();
     // Push everything the wizard collected. This is what stops the next launch
     // asking for it all over again.
@@ -263,20 +270,18 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
                 children: [
                   _scroll(
                     WorkCategoryStep(
-                      selected: _data.categories,
-                      maxSelections: OnboardingData.maxCategories,
+                      selected: _data.category,
                       onChanged: (name) => setState(() {
-                        final wasPrimary = _data.category;
-                        _data.toggleCategory(name);
-                        // Only a change of *primary* invalidates the trade and
-                        // licences — they were chosen from that category's
-                        // vocabulary. Adding a second category leaves them
-                        // alone, because nothing about the main trade changed.
-                        if (_data.category != wasPrimary) {
+                        // A different category means a different vocabulary,
+                        // so the trade and everything picked from it goes.
+                        // Keeping a welding certificate on a nursing profile
+                        // would be worse than asking again.
+                        if (_data.category != name) {
                           _data.roleTitle = '';
                           _data.certificates.clear();
                           _data.skills.clear();
                         }
+                        _data.category = name;
                       }),
                     ),
                   ),
@@ -292,7 +297,17 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     );
   }
 
-  /// Step two: the trade for field work, education or employment otherwise.
+  /// Step two: the job itself, for every category.
+  ///
+  /// Both paths pick a role here now. Healthcare & Nursing used to fall
+  /// straight through to the professional branch — the same screens IT gets —
+  /// so a nurse was asked for her highest qualification and a list of key
+  /// skills, and never offered "Staff Nurse" at all. Shantosh: *"healthcare and
+  /// nursing brings me the IT & Software page, fix it, have their own thing to
+  /// select like others."*
+  ///
+  /// What still differs is what comes *after* the trade: a professional
+  /// candidate is asked about education and a CV, a field candidate is not.
   Widget _secondStep() {
     if (_data.isFieldWork) {
       return TradeStep(data: _data, onChanged: () => setState(() {}));
@@ -300,6 +315,12 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The same trade picker the field path opens with, so every category
+        // offers its own jobs.
+        TradeStep(data: _data, onChanged: () => setState(() {})),
+        const SizedBox(height: 30),
+        Divider(color: Theme.of(context).dividerColor),
+        const SizedBox(height: 22),
         // Resume autofill is offered on the professional path only. A candidate
         // who has never had a CV written for them is not helped by being asked
         // to upload one — it reads as a requirement they cannot meet.

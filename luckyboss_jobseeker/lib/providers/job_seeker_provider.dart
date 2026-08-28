@@ -629,6 +629,12 @@ class JobSeekerProvider extends ChangeNotifier {
           FeedPrompts.relocate => _profile.openToRelocate == null,
           FeedPrompts.jobType => _profile.jobTypes.isEmpty,
           FeedPrompts.workPermit => _profile.hasWorkPermit == null,
+          FeedPrompts.ownTools => _profile.hasOwnTools == null,
+          FeedPrompts.ownTransport => _profile.hasOwnTransport == null,
+          FeedPrompts.nightShift => _profile.willingNightShift == null,
+          FeedPrompts.accommodation => _profile.willingAccommodation == null,
+          FeedPrompts.passport => _profile.hasPassport == null,
+          FeedPrompts.noticePeriod => _profile.noticePeriod.isEmpty,
           _ => true,
         };
       }).toList();
@@ -671,6 +677,18 @@ class JobSeekerProvider extends ChangeNotifier {
         _profile.jobTypes = List<String>.from(value as List);
       case FeedPrompts.workPermit:
         _profile.hasWorkPermit = value as bool;
+      case FeedPrompts.ownTools:
+        _profile.hasOwnTools = value as bool;
+      case FeedPrompts.ownTransport:
+        _profile.hasOwnTransport = value as bool;
+      case FeedPrompts.nightShift:
+        _profile.willingNightShift = value as bool;
+      case FeedPrompts.accommodation:
+        _profile.willingAccommodation = value as bool;
+      case FeedPrompts.passport:
+        _profile.hasPassport = value as bool;
+      case FeedPrompts.noticePeriod:
+        _profile.noticePeriod = value as String;
     }
     _answeredPrompts.add(id);
     notifyListeners();
@@ -901,6 +919,12 @@ class JobSeekerProvider extends ChangeNotifier {
         };
       case 'availability':
         _profile.availability = value as String;
+      case 'email':
+        _profile.email = value as String;
+      case 'countries':
+        _profile.preferredCountries = List<String>.from(value as List);
+      case 'payPeriod':
+        _profile.payPeriod = value as String;
     }
     notifyListeners();
     await syncProfile();

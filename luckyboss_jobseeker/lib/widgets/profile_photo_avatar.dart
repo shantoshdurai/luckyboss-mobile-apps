@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../providers/job_seeker_provider.dart';
-import '../services/profile_photo_service.dart';
+import 'profile_photo_sheet.dart';
 
 /// The candidate's profile photo, and the whole flow for setting one.
 ///
@@ -45,175 +45,16 @@ class _ProfilePhotoAvatarState extends State<ProfilePhotoAvatar> {
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
   }
 
-  Future<void> _pick(PhotoSource source) async {
+  /// Opens the shared photo sheet.
+  ///
+  /// The picking, permission and storage logic used to live in this widget,
+  /// which meant the only way to set a photo was to tap the avatar — the
+  /// "Add photo" card elsewhere on the profile could do nothing but tell you
+  /// to come here. It is in [ProfilePhotoSheet] now so both work.
+  Future<void> _open(bool hasPhoto) async {
     setState(() => _busy = true);
-    final result = await ProfilePhotoService.capture(source);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (result.ok) {
-      context.read<JobSeekerProvider>().setProfilePhoto(result.url);
-      _notify('Profile photo updated.');
-      return;
-    }
-
-    switch (result.failure) {
-      // Backing out of the picker is a normal action, not a failure to report.
-      case PhotoFailure.cancelled:
-        return;
-      case PhotoFailure.permissionPermanentlyDenied:
-        _offerSettings(result.message!);
-        return;
-      default:
-        if (result.message != null) _notify(result.message!);
-    }
-  }
-
-  Future<void> _remove() async {
-    setState(() => _busy = true);
-    final ok = await ProfilePhotoService.remove();
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (ok) {
-      context.read<JobSeekerProvider>().setProfilePhoto(null);
-      _notify('Profile photo removed.');
-    } else {
-      _notify('Could not remove the photo. Please try again.');
-    }
-  }
-
-  void _notify(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppTheme.sansMedium(fontSize: 13, color: AppTheme.onInkOf(context))),
-        backgroundColor: AppTheme.primaryFillOf(context),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  /// The permanently-denied case. Re-requesting here would do nothing at all —
-  /// Android will not show the dialog again — so the only useful action is to
-  /// take the user to Settings.
-  void _offerSettings(String message) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(ctx).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Permission needed',
-            style: AppTheme.sansBold(fontSize: 17, color: AppTheme.inkOf(context))),
-        content: Text(message,
-            style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.inkMutedOf(context))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Not now',
-                style: AppTheme.sansMedium(fontSize: 14, color: AppTheme.inkMutedOf(context))),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ProfilePhotoService.openSettings();
-            },
-            child: Text('Open Settings',
-                style: AppTheme.sansBold(fontSize: 14, color: AppTheme.signalSource)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openSheet(bool hasPhoto) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text('Profile photo',
-                style: AppTheme.sansBold(fontSize: 17, color: AppTheme.inkOf(context))),
-            const SizedBox(height: 4),
-            Text(
-              'Employers see this next to your name on every application.',
-              style: AppTheme.sansRegular(fontSize: 13, color: AppTheme.inkMutedOf(context)),
-            ),
-            const SizedBox(height: 16),
-            _sheetAction(
-              ctx,
-              icon: Icons.photo_camera_outlined,
-              label: 'Take a photo',
-              onTap: () {
-                Navigator.pop(ctx);
-                _pick(PhotoSource.camera);
-              },
-            ),
-            _sheetAction(
-              ctx,
-              icon: Icons.photo_library_outlined,
-              label: 'Choose from device',
-              onTap: () {
-                Navigator.pop(ctx);
-                _pick(PhotoSource.gallery);
-              },
-            ),
-            if (hasPhoto)
-              _sheetAction(
-                ctx,
-                icon: Icons.delete_outline,
-                label: 'Remove current photo',
-                danger: true,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _remove();
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sheetAction(
-    BuildContext ctx, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool danger = false,
-  }) {
-    final color = danger ? AppTheme.signalClosed : AppTheme.inkOf(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 21, color: color),
-            const SizedBox(width: 14),
-            Text(label, style: AppTheme.sansMedium(fontSize: 15, color: color)),
-          ],
-        ),
-      ),
-    );
+    await ProfilePhotoSheet.open(context, hasPhoto: hasPhoto);
+    if (mounted) setState(() => _busy = false);
   }
 
   @override
@@ -227,7 +68,7 @@ class _ProfilePhotoAvatarState extends State<ProfilePhotoAvatar> {
       label: hasPhoto ? 'Profile photo' : 'Add a profile photo',
       button: widget.editable,
       child: GestureDetector(
-        onTap: widget.editable && !_busy ? () => _openSheet(hasPhoto) : null,
+        onTap: widget.editable && !_busy ? () => _open(hasPhoto) : null,
         child: SizedBox(
           width: widget.size,
           height: widget.size,

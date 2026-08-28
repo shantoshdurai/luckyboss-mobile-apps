@@ -131,6 +131,38 @@ class SeekerProfileModel {
   /// sponsorship" from "not sure", and employers treat those very differently.
   String workPermitStatus;
 
+  // ---------------------------------------------------------------------------
+  // THE FEED QUESTIONS
+  //
+  // Asked between job cards rather than in onboarding, because none of them is
+  // needed to start and all of them narrow a shortlist. They exist because the
+  // feed had run out of things to ask: onboarding collects market, pay,
+  // availability, permit and relocation, so after finishing the wizard exactly
+  // one prompt remained and the feed became an unbroken column of job cards.
+  //
+  // Every one is a question an agency actually asks on the phone before putting
+  // somebody forward.
+  // ---------------------------------------------------------------------------
+
+  /// Owns their own tools. For a carpenter or an electrician this decides
+  /// whether a small contractor can take them on at all.
+  bool? hasOwnTools;
+
+  /// Has their own vehicle — a bike for delivery, a van for site work.
+  bool? hasOwnTransport;
+
+  /// Will work nights. A large share of warehouse, security and manufacturing
+  /// vacancies are night shifts, and offering them to somebody who will not
+  /// work nights wastes everybody's time.
+  bool? willingNightShift;
+
+  /// Will live in accommodation the employer provides, which is how most
+  /// cross-border placements work.
+  bool? willingAccommodation;
+
+  /// Holds a passport. The first question asked of anyone being placed abroad.
+  bool? hasPassport;
+
   /// Whether [expectedSalary] is quoted per day, per month or per year. Without
   /// it the number is not interpretable: 800 is a good daily rate and a poor
   /// monthly one.
@@ -171,6 +203,11 @@ class SeekerProfileModel {
     this.payPeriod = 'Per month',
     this.openToRelocate,
     this.hasWorkPermit,
+    this.hasOwnTools,
+    this.hasOwnTransport,
+    this.willingNightShift,
+    this.willingAccommodation,
+    this.hasPassport,
     this.isVerified = false,
   })  : preferredCategories = preferredCategories ?? [],
         preferredCountries = preferredCountries ?? [],
@@ -314,6 +351,11 @@ class SeekerProfileModel {
         'availability': availability,
         'openToRelocate': openToRelocate,
         'hasWorkPermit': hasWorkPermit,
+        'hasOwnTools': hasOwnTools,
+        'hasOwnTransport': hasOwnTransport,
+        'willingNightShift': willingNightShift,
+        'willingAccommodation': willingAccommodation,
+        'hasPassport': hasPassport,
         'headline': headline,
         'department': department,
         'projects': projects,
@@ -372,6 +414,11 @@ class SeekerProfileModel {
       availability: text('availability'),
       openToRelocate: j['openToRelocate'] as bool?,
       hasWorkPermit: j['hasWorkPermit'] as bool?,
+      hasOwnTools: j['hasOwnTools'] as bool?,
+      hasOwnTransport: j['hasOwnTransport'] as bool?,
+      willingNightShift: j['willingNightShift'] as bool?,
+      willingAccommodation: j['willingAccommodation'] as bool?,
+      hasPassport: j['hasPassport'] as bool?,
       headline: text('headline'),
       department: text('department'),
       projects: strings('projects'),

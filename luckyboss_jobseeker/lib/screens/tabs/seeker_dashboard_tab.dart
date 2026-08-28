@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../edit_profile_screen.dart';
 import '../../providers/job_seeker_provider.dart';
 import '../../widgets/ledger_components.dart';
 import '../../widgets/rolling_search_bar.dart';
@@ -143,11 +144,20 @@ class SeekerDashboardTab extends StatelessWidget {
         bottom: false,
         child: CustomScrollView(
           slivers: [
-            // Search leads the screen. The wordmark moved to the launch
-            // screen — it identified the app once, at open, and then took a
-            // band of every scroll for the rest of the session.
-            SliverToBoxAdapter(
-              child: _SearchEntry(onSearch: onSearch, onMenu: onMenu),
+            // Search leads the screen, and stays.
+            //
+            // Pinned rather than scrolled away. Shantosh: *"it looks great when
+            // I scroll down, the screen bar goes with it — it feels pretty
+            // empty up [there] without them."* He is right on both counts: the
+            // top of a scrolled feed looked bare, and search is the one control
+            // a candidate reaches for at any point in a long list. The wordmark
+            // stays off it — that identified the app once, at open, and then
+            // took a band of every scroll for the rest of the session.
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedSearchHeader(
+                child: _SearchEntry(onSearch: onSearch, onMenu: onMenu),
+              ),
             ),
             const SliverToBoxAdapter(child: BrandRule()),
             // The only profile surface on home: a single nudge that routes to
@@ -159,7 +169,14 @@ class SeekerDashboardTab extends StatelessWidget {
                   child: ProfileCompletionRing(
                     percent: provider.profileCompletion,
                     nextAction: provider.nextProfileStep!,
-                    onTap: onProfile,
+                    // Straight to the editor. This used to open the profile
+                    // tab, which told the candidate to add their name and gave
+                    // them nowhere to type it.
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen()),
+                    ),
                   ),
                 ),
               ),
@@ -384,4 +401,39 @@ class _SearchEntry extends StatelessWidget {
 // than by a different layout.
 // =============================================================================
 
+/// Keeps the search bar at the top of the feed while it scrolls.
+///
+/// A fixed-height delegate rather than a `SliverAppBar` because the bar is not
+/// an app bar — it has no title, no back button and no elevation of its own,
+/// and wrapping it in one would have introduced all three.
+class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
+  final Widget child;
 
+  const _PinnedSearchHeader({required this.child});
+
+  /// Matches `_SearchEntry`'s own height. Measured rather than guessed: a
+  /// delegate whose extent disagrees with its child clips it.
+  static const double _height = 74;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) =>
+      Container(
+        height: _height,
+        // Opaque, or the feed scrolls visibly underneath the search field.
+        color: AppTheme.paperOf(context),
+        child: child,
+      );
+
+  @override
+  bool shouldRebuild(_PinnedSearchHeader old) => old.child != child;
+}

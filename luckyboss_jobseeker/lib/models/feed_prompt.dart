@@ -52,6 +52,14 @@ class FeedPrompts {
   static const String jobType = 'job_type';
   static const String workPermit = 'work_permit';
 
+  // Asked only after onboarding, and only of the people they apply to.
+  static const String ownTools = 'own_tools';
+  static const String ownTransport = 'own_transport';
+  static const String nightShift = 'night_shift';
+  static const String accommodation = 'accommodation';
+  static const String passport = 'passport';
+  static const String noticePeriod = 'notice_period';
+
   static const List<FeedPrompt> all = [
     FeedPrompt(
       id: preferredCountry,
@@ -105,6 +113,53 @@ class FeedPrompts {
       question: 'Do you have a valid work permit for this market?',
       detail: 'Some employers filter on this before shortlisting.',
       kind: PromptKind.yesNo,
+      completionGain: 4,
+    ),
+
+    // --- The rest, asked between job cards over time ---
+    //
+    // Deliberately short and answerable in one tap. A question that needs
+    // thinking about does not belong between two job cards.
+    FeedPrompt(
+      id: ownTools,
+      question: 'Do you have your own tools?',
+      detail: 'Some employers only take workers who bring their own.',
+      kind: PromptKind.yesNo,
+      completionGain: 4,
+    ),
+    FeedPrompt(
+      id: ownTransport,
+      question: 'Do you have your own vehicle?',
+      detail: 'A bike or a van. It widens which sites you can reach.',
+      kind: PromptKind.yesNo,
+      completionGain: 4,
+    ),
+    FeedPrompt(
+      id: nightShift,
+      question: 'Would you work night shifts?',
+      detail: 'Warehouse, security and factory work is often nights.',
+      kind: PromptKind.yesNo,
+      completionGain: 5,
+    ),
+    FeedPrompt(
+      id: accommodation,
+      question: 'Would you stay in accommodation the employer provides?',
+      detail: 'Most jobs in another country come with a room.',
+      kind: PromptKind.yesNo,
+      completionGain: 5,
+    ),
+    FeedPrompt(
+      id: passport,
+      question: 'Do you have a passport?',
+      detail: 'Needed before we can put you forward for work abroad.',
+      kind: PromptKind.yesNo,
+      completionGain: 4,
+    ),
+    FeedPrompt(
+      id: noticePeriod,
+      question: 'If you are working now, how much notice do you owe?',
+      kind: PromptKind.choice,
+      options: ['None', '1 week', '2 weeks', '1 month', 'More than a month'],
       completionGain: 4,
     ),
   ];

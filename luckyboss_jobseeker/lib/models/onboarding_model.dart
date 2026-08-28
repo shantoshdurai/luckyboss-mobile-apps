@@ -1,4 +1,5 @@
 import '../core/constants/app_data.dart';
+import 'uploaded_document.dart';
 
 /// Which branch of onboarding a candidate takes.
 ///
@@ -64,27 +65,17 @@ class OnboardingData {
   // So the category is chosen first, and [WorkPath] on it decides which
   // questions follow.
   // ---------------------------------------------------------------------------
-  /// Kinds of work the candidate will take, best first.
+  /// The kind of work being looked for. One, not several.
   ///
-  /// A general worker takes construction or warehouse; a driver will do
-  /// delivery or logistics. Forcing one answer halves the feed we can build for
-  /// them. Capped at three — past that they are saying "anything", and the
-  /// match score stops discriminating between jobs at all.
-  final List<String> categories = [];
+  /// Briefly allowed three, and reverted: every screen after this one is built
+  /// from the chosen category's own vocabulary — its trades, its tasks, its
+  /// certificates — so a second choice had nowhere to be asked about. A
+  /// candidate open to more than one kind of work adds the others from their
+  /// profile afterwards, where there is room to ask properly.
+  String category = '';
 
-  static const int maxCategories = 3;
-
-  /// The primary choice, which decides the shape of the rest of the wizard.
-  String get category => categories.isEmpty ? '' : categories.first;
-
-  bool get canAddCategory => categories.length < maxCategories;
-
-  /// Adds or removes a category, keeping the first-chosen one primary.
-  void toggleCategory(String name) {
-    if (categories.remove(name)) return;
-    if (!canAddCategory) return;
-    categories.add(name);
-  }
+  /// Kept as a one-item view for the code that folds this into the profile.
+  List<String> get categories => category.isEmpty ? const [] : [category];
 
   WorkCategory? get workCategory => AppData.categoryByName(category);
 
@@ -102,9 +93,15 @@ class OnboardingData {
   /// "Lead / Principal (10+ yrs)" means nothing on a building site.
   int yearsInTrade = 0;
 
-  /// Licences, cards and certificates. For several field categories this is the
-  /// single most valuable thing on the profile.
+  /// Licences, cards and certificates the candidate says they hold.
   final Set<String> certificates = {};
+
+  /// Documents uploaded during onboarding as proof of work.
+  ///
+  /// Held here so they can be folded into the profile when the wizard
+  /// finishes, rather than written to the profile by a half-completed form
+  /// somebody then abandons.
+  final List<UploadedDocument> uploadedProof = [];
 
   /// Languages spoken — spec section 31, and often the deciding factor for
   /// domestic, care and service placements.

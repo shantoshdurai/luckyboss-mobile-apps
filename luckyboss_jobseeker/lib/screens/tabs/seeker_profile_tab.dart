@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../edit_profile_screen.dart';
 import '../../widgets/profile_photo_avatar.dart';
+import '../../widgets/profile_photo_sheet.dart';
 import '../../widgets/profile_boost_cards.dart';
 import '../../widgets/document_preview.dart';
 import '../../widgets/licences_sheet.dart';
@@ -431,13 +433,15 @@ controller: customSkillCtrl,
 
   /// Routes the photo card to the avatar's own camera/gallery sheet, so there
   /// is one capture flow rather than two that can drift apart.
-  void _promptPhoto() {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Tap your photo above to take or choose one.',
-          style: AppTheme.sansMedium(fontSize: 13, color: Colors.white)),
-      backgroundColor: AppTheme.primaryNavy,
-      behavior: SnackBarBehavior.floating,
-    ));
+  /// Opens the photo picker.
+  ///
+  /// This used to show a snackbar reading "Tap your photo above to take or
+  /// choose one" — a button whose whole function was to point at a different
+  /// button. It opens the same sheet as the avatar now.
+  Future<void> _promptPhoto() async {
+    final hasPhoto =
+        (context.read<JobSeekerProvider>().profile.photoUrl ?? '').isNotEmpty;
+    await ProfilePhotoSheet.open(context, hasPhoto: hasPhoto);
   }
 
   @override
@@ -590,6 +594,27 @@ controller: customSkillCtrl,
               onUploadPhoto: _promptPhoto,
             ),
           ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13)),
+              ),
+              icon: const Icon(Icons.edit_outlined,
+                  size: 17, color: AppTheme.royalBlue),
+              label: Text('Edit my details',
+                  style: AppTheme.sansBold(
+                      fontSize: 13.5, color: AppTheme.royalBlue)),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // 2. Licences and cards — the field-work equivalent of a resume, and
           //    the single most valuable thing on a trade profile. Employers ask
           //    "does he have the forklift ticket" before anything else.

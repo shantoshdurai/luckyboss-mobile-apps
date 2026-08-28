@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../screens/edit_profile_screen.dart';
+import 'lucky_ai_copilot_modal.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
@@ -57,6 +60,22 @@ class AppDrawer extends StatelessWidget {
                           ? null
                           : '${provider.myApplications.length}'),
                   const Divider(height: 24, indent: 20, endIndent: 20),
+                  // The assistant, reachable from the menu as well as the
+                  // header icon. Shantosh asked for it here because the drawer
+                  // is where people look for "things the app can do".
+                  _item(context, Icons.auto_awesome, 'Speak to Lucky AI',
+                      () {
+                    Navigator.pop(context);
+                    LuckyAiCopilotModal.show(context);
+                  }),
+                  _item(context, Icons.edit_outlined, 'Edit my profile', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen()),
+                    );
+                  }),
                   _item(context, Icons.person_outline, 'Profile & resume',
                       () => _go(context, 3)),
                   _item(context, Icons.insights_outlined, 'How matching works',
