@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/candidate.dart';
 import '../models/employer_job.dart';
+import '../models/job_boost.dart';
 import '../models/uploaded_document.dart';
 import '../services/candidate_pool_service.dart';
 import '../services/local_store.dart';
@@ -104,12 +105,124 @@ class EmployerProvider extends ChangeNotifier {
   final List<EmployerJobModel> _jobs = [];
   final List<Candidate> _pool = [];
   final Map<String, List<String>> _notes = {};
+  final List<EmployerCharge> _charges = [];
   final List<UploadedDocument> _documents = [];
 
   List<EmployerJobModel> get jobs => List.unmodifiable(_jobs);
 
   List<EmployerJobModel> get publishedJobs =>
       _jobs.where((j) => j.status == JobStatus.published).toList();
+
+  /// Live vacancies in the order a candidate sees them: boosted first, by
+  /// weight, then newest.
+  ///
+  /// This is what the employer is buying — see [boostJob]. Sorting here rather
+  /// than in the UI keeps the employer's preview and the candidate's feed in
+  /// agreement, which matters when someone has just paid for the position.
+  List<EmployerJobModel> get rankedJobs {
+    final ranked = [...publishedJobs]..sort((a, b) {
+        final byBoost = b.boostPriority.compareTo(a.boostPriority);
+        if (byBoost != 0) return byBoost;
+        return b.postedDate.compareTo(a.postedDate);
+      });
+    return ranked;
+  }
+
+  List<EmployerJobModel> get boostedJobs =>
+      _jobs.where((j) => j.isBoosted).toList();
+
+  // --------------------------------------------------- promotion, spec §61
+
+  /// Buys a boost for a job.
+  ///
+  /// Refuses for an unverified company, like every other paid action — selling
+  /// prominence to a business nobody has checked is the opposite of what the
+  /// verification gate is for.
+  ///
+  /// The charge is recorded locally so the payment history (spec §66) is
+  /// honest on a standalone build. When billing exists this becomes the point
+  /// where the server is asked to take the money, and the boost is applied only
+  /// once it confirms.
+  bool boostJob(String jobId, BoostType type, int days) {
+    if (!canPost) return false;
+    final index = _jobs.indexWhere((j) => j.id == jobId);
+    if (index == -1) return false;
+
+    final job = _jobs[index];
+    final amount = BoostPricing.priceFor(type, days, job.countryCode);
+    final currency = BoostPricing.currencyFor(job.countryCode);
+    final now = DateTime.now();
+
+    _jobs[index] = job.copyWith(
+      boost: JobBoost(
+        type: type,
+        startsAt: now,
+        endsAt: now.add(Duration(days: days)),
+        amount: amount,
+        currency: currency,
+      ),
+    );
+
+    _charges.insert(
+      0,
+      EmployerCharge(
+        id: 'chg-${now.microsecondsSinceEpoch}',
+        description: '${type.label} · ${job.title} · $days days',
+        amount: amount,
+        currency: currency,
+        chargedAt: now,
+        jobId: jobId,
+      ),
+    );
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Ends a boost early. The charge stands — the days were bought.
+  void cancelBoost(String jobId) {
+    final index = _jobs.indexWhere((j) => j.id == jobId);
+    if (index == -1) return;
+    final job = _jobs[index];
+    if (job.boost == null) return;
+    _jobs[index] = EmployerJobModel(
+      id: job.id,
+      role: job.role,
+      title: job.title,
+      category: job.category,
+      companyId: job.companyId,
+      companyName: job.companyName,
+      companyLogoUrl: job.companyLogoUrl,
+      companyVerified: job.companyVerified,
+      companyType: job.companyType,
+      location: job.location,
+      countryCode: job.countryCode,
+      minSalary: job.minSalary,
+      maxSalary: job.maxSalary,
+      currency: job.currency,
+      payPeriod: job.payPeriod,
+      workMode: job.workMode,
+      shift: job.shift,
+      description: job.description,
+      requiredSkills: job.requiredSkills,
+      requiredCertificates: job.requiredCertificates,
+      accommodationProvided: job.accommodationProvided,
+      transportProvided: job.transportProvided,
+      permitSponsored: job.permitSponsored,
+      trainingProvided: job.trainingProvided,
+      vacancies: job.vacancies,
+      status: job.status,
+      postedDate: job.postedDate,
+      closingDate: job.closingDate,
+    );
+    notifyListeners();
+  }
+
+  /// Everything charged to this company, newest first — spec §66.
+  List<EmployerCharge> get charges => List.unmodifiable(_charges);
+
+  int get totalSpent =>
+      _charges.fold(0, (sum, charge) => sum + charge.amount);
 
   EmployerJobModel? jobById(String id) {
     for (final j in _jobs) {
@@ -141,6 +254,10 @@ class EmployerProvider extends ChangeNotifier {
       ..addAll(await EmployerStore.loadJobs());
 
     _notes.addAll(await EmployerStore.loadNotes());
+
+    _charges
+      ..clear()
+      ..addAll(await EmployerStore.loadCharges());
 
     _documents
       ..clear()
@@ -187,6 +304,7 @@ class EmployerProvider extends ChangeNotifier {
     await EmployerStore.saveCompany(_company);
     await EmployerStore.saveJobs(_jobs);
     await EmployerStore.saveNotes(_notes);
+    await EmployerStore.saveCharges(_charges);
     await EmployerStore.saveCandidateState({
       for (final c in _pool)
         if (_isTouched(c)) c.id: c.stateToJson(),
@@ -440,6 +558,7 @@ class EmployerProvider extends ChangeNotifier {
     _company = const CompanyProfile();
     _jobs.clear();
     _notes.clear();
+    _charges.clear();
     _documents.clear();
     for (final candidate in _pool) {
       candidate

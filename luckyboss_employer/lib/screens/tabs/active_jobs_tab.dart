@@ -5,6 +5,7 @@ import '../../core/constants/app_data.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/employer_job.dart';
 import '../../providers/employer_provider.dart';
+import '../../widgets/boost_sheet.dart';
 import '../jobs/post_job_wizard_screen.dart';
 
 /// The company's vacancies.
@@ -54,12 +55,22 @@ class ActiveJobsTab extends StatelessWidget {
                         fontSize: 13, color: AppTheme.inkMutedOf(context)),
                   ),
                   const SizedBox(height: 16),
-                  for (final job in jobs)
+                  // Boosted first, exactly as candidates see them — an
+                  // employer who has paid for the top slot should be able to
+                  // see that it worked without leaving the app.
+                  for (final job in provider.rankedJobs)
                     _JobCard(
                       job: job,
                       candidateCount: provider.countFor(job.id),
                       onTap: () => onOpenCandidates?.call(job.id),
                     ),
+                  for (final job in jobs)
+                    if (job.status != JobStatus.published)
+                      _JobCard(
+                        job: job,
+                        candidateCount: provider.countFor(job.id),
+                        onTap: () => onOpenCandidates?.call(job.id),
+                      ),
                 ],
               ),
       ),
@@ -190,7 +201,10 @@ class _JobCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _StatusPill(status: job.status),
+                  if (job.isBoosted)
+                    BoostBadge(type: job.boost!.type)
+                  else
+                    _StatusPill(status: job.status),
                 ],
               ),
               const SizedBox(height: 12),
@@ -224,7 +238,37 @@ class _JobCard extends StatelessWidget {
                   ],
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
+              // The boost control sits on the card because that is where an
+              // employer decides one job matters more than the others.
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => BoostSheet.open(context, job),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11)),
+                  ),
+                  icon: Icon(
+                      job.isBoosted ? Icons.bolt : Icons.trending_up,
+                      size: 16,
+                      color: job.isBoosted
+                          ? AppTheme.signalPositive
+                          : AppTheme.royalBlue),
+                  label: Text(
+                    job.isBoosted
+                        ? '${job.boost!.daysRemaining} days of boost left'
+                        : 'Boost to the top',
+                    style: AppTheme.sansBold(
+                        fontSize: 12.5,
+                        color: job.isBoosted
+                            ? AppTheme.signalPositive
+                            : AppTheme.royalBlue),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 11),
                 decoration: BoxDecoration(

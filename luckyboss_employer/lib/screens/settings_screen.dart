@@ -74,6 +74,10 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 18),
+          _section(context, 'Billing'),
+          _BillingCard(provider: provider),
+
+          const SizedBox(height: 18),
           _section(context, 'Account'),
           _card(
             context,
@@ -274,6 +278,89 @@ class _VerificationCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What the company has been charged, spec §66.
+///
+/// Shown in full rather than as a total. A boost is the first thing in this app
+/// that takes money, and an employer who cannot see the individual charges will
+/// not trust the next one.
+class _BillingCard extends StatelessWidget {
+  final EmployerProvider provider;
+
+  const _BillingCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final charges = provider.charges;
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (charges.isEmpty)
+            Text(
+              'Nothing charged yet. Boosting a job is the only paid action '
+              'right now, and the price is shown before you buy.',
+              style: AppTheme.sansRegular(
+                  fontSize: 13, color: AppTheme.inkMutedOf(context)),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Total spent',
+                      style: AppTheme.sansBold(
+                          fontSize: 14, color: AppTheme.inkOf(context))),
+                ),
+                Text('${charges.first.currency} ${provider.totalSpent}',
+                    style: AppTheme.sansBold(
+                        fontSize: 15, color: AppTheme.inkOf(context))),
+              ],
+            ),
+            const Divider(height: 22),
+            for (final charge in charges.take(8))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(charge.description,
+                              style: AppTheme.sansMedium(
+                                  fontSize: 13,
+                                  color: AppTheme.inkOf(context))),
+                          Text(
+                            '${charge.chargedAt.day}/${charge.chargedAt.month}/'
+                            '${charge.chargedAt.year}',
+                            style: AppTheme.sansRegular(
+                                fontSize: 11.5,
+                                color: AppTheme.inkFaintOf(context)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text('${charge.currency} ${charge.amount}',
+                        style: AppTheme.sansSemiBold(
+                            fontSize: 13,
+                            color: AppTheme.inkMutedOf(context))),
+                  ],
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }

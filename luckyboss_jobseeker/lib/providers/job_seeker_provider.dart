@@ -269,7 +269,15 @@ class JobSeekerProvider extends ChangeNotifier {
         .map((j) => (job: j, score: matchScoreFor(j) ?? 0.0))
         .where((e) => e.score > 0)
         .toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+      ..sort((a, b) {
+        // A boost lifts a job above better matches — that is what the employer
+        // paid for, spec §61. It does not put an irrelevant job in the feed:
+        // the match filter above still applies, so a boosted vacancy the
+        // candidate cannot do never reaches this sort at all.
+        final byBoost = b.job.boostPriority.compareTo(a.job.boostPriority);
+        if (byBoost != 0) return byBoost;
+        return b.score.compareTo(a.score);
+      });
     return scored.map((e) => e.job).toList();
   }
 

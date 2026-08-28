@@ -5,6 +5,7 @@ import 'package:luckybossemployer/core/constants/app_data.dart';
 import 'package:luckybossemployer/core/theme/app_theme.dart';
 import 'package:luckybossemployer/models/candidate.dart';
 import 'package:luckybossemployer/models/employer_job.dart';
+import 'package:luckybossemployer/models/job_boost.dart';
 import 'package:luckybossemployer/providers/employer_provider.dart';
 import 'package:luckybossemployer/services/candidate_pool_service.dart';
 import 'package:luckybossemployer/services/local_store.dart';
@@ -22,6 +23,19 @@ void main() {
     CandidatePoolService.resetCache();
   });
 
+  /// A provider that cleans up after itself.
+  ///
+  /// Necessary, not tidiness. `EmployerProvider` debounces its writes by 400ms,
+  /// so a provider left alive at the end of a test fires its timer *during the
+  /// next one* and writes its state into the store `setUp` has just cleared.
+  /// The next `hydrate()` then loads another test's jobs, and the failures move
+  /// around between runs. Disposing cancels the timer.
+  EmployerProvider newProvider() {
+    final provider = EmployerProvider();
+    addTearDown(provider.dispose);
+    return provider;
+  }
+
   /// Puts the provider in the state a verified company is in.
   ///
   /// Set directly because nothing in the app may set it — verification is a
@@ -38,9 +52,10 @@ void main() {
   EmployerJobModel masonJob({
     List<String> certificates = const [],
     String country = 'IN',
+    String id = 'job-test',
   }) =>
       EmployerJobModel(
-        id: 'job-test',
+        id: id,
         role: 'Mason',
         title: 'Mason',
         category: 'Construction',
@@ -58,7 +73,7 @@ void main() {
 
   group('a posted vacancy survives the app closing', () {
     test('jobs and company are written and read back', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
 
       provider.updateCompany(const CompanyProfile(
@@ -69,7 +84,7 @@ void main() {
       provider.postJob(masonJob());
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
 
       expect(reopened.company.name, 'Ravi Constructions');
@@ -78,7 +93,7 @@ void main() {
     });
 
     test('a vacancy keeps everything field work needs', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
 
       provider.postJob(EmployerJobModel(
@@ -102,7 +117,7 @@ void main() {
       ));
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
       final job = reopened.jobs.first;
 
@@ -120,7 +135,7 @@ void main() {
     });
 
     test('signing out clears the company data', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.updateCompany(const CompanyProfile(name: 'Test', email: 'a@b.com'));
       provider.postJob(masonJob());
@@ -164,7 +179,7 @@ void main() {
     });
 
     test('all three tables have rows for a posted job', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
 
@@ -177,7 +192,7 @@ void main() {
 
   group('matching', () {
     test('the right trade ranks first', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
 
@@ -252,7 +267,7 @@ void main() {
 
   group('contact credits, spec §71-72', () {
     test('an applicant costs nothing to contact', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
 
@@ -264,7 +279,7 @@ void main() {
     });
 
     test('revealing a recommended candidate spends one credit', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
 
@@ -285,7 +300,7 @@ void main() {
     });
 
     test('spent credits survive a restart', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
       verify(provider);
@@ -296,7 +311,7 @@ void main() {
       provider.revealContact(id);
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
 
       expect(reopened.candidateById(id)!.contactRevealed, isTrue);
@@ -308,7 +323,7 @@ void main() {
 
   group('verification gates what a company can do', () {
     test('a new company cannot post or reach out', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.updateCompany(
           const CompanyProfile(name: 'Unchecked Ltd', email: 'a@b.com'));
@@ -327,7 +342,7 @@ void main() {
     });
 
     test('submitting stops at awaiting verification', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.updateCompany(const CompanyProfile(
         name: 'Ravi Constructions',
@@ -351,7 +366,7 @@ void main() {
     });
 
     test('an unverified company gets a draft, not a lost vacancy', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.updateCompany(
           const CompanyProfile(name: 'Unchecked Ltd', email: 'a@b.com'));
@@ -360,7 +375,7 @@ void main() {
       provider.postJob(masonJob().copyWith(status: JobStatus.draft));
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
 
       expect(reopened.jobs, hasLength(1),
@@ -371,7 +386,7 @@ void main() {
     });
 
     test('a posting carries the company that made it', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       verify(provider);
 
@@ -382,7 +397,7 @@ void main() {
       provider.postJob(job);
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
       final stored = reopened.jobs.first;
 
@@ -394,9 +409,142 @@ void main() {
     });
   });
 
+  group('job boosting, spec §61', () {
+    test('a boost lifts the job and charges the company', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      verify(provider);
+      provider.postJob(masonJob());
+
+      expect(provider.boostJob('job-test', BoostType.urgent, 7), isTrue);
+
+      final job = provider.jobById('job-test')!;
+      expect(job.isBoosted, isTrue);
+      expect(job.boost!.type, BoostType.urgent);
+      expect(job.boostPriority, greaterThan(0));
+
+      // Spec §66 — the charge is recorded, at the price on the day.
+      expect(provider.charges, hasLength(1));
+      expect(provider.charges.first.jobId, 'job-test');
+      expect(provider.totalSpent,
+          BoostPricing.priceFor(BoostType.urgent, 7, 'IN'));
+    });
+
+    test('boosted jobs rank above unboosted ones', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      verify(provider);
+
+      provider.postJob(masonJob());
+      provider.postJob(masonJob(id: 'job-second'));
+      provider.postJob(EmployerJobModel(
+        id: 'job-boosted',
+        role: 'Mason',
+        title: 'Boosted Mason',
+        category: 'Construction',
+        companyName: 'Test Builders',
+        location: 'Chennai',
+        countryCode: 'IN',
+        minSalary: '22000',
+        maxSalary: '30000',
+        currency: 'INR',
+        postedDate: DateTime.now().subtract(const Duration(days: 20)),
+      ));
+
+      // Oldest job, so without a boost it would rank last.
+      provider.boostJob('job-boosted', BoostType.urgent, 7);
+
+      expect(provider.rankedJobs.first.id, 'job-boosted',
+          reason: 'the top slot is what the employer paid for');
+    });
+
+    test('urgent outranks featured', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      verify(provider);
+      provider.postJob(masonJob());
+      provider.postJob(EmployerJobModel(
+        id: 'job-featured',
+        role: 'Mason',
+        title: 'Featured Mason',
+        category: 'Construction',
+        companyName: 'Test Builders',
+        location: 'Chennai',
+        countryCode: 'IN',
+        minSalary: '1',
+        maxSalary: '2',
+        currency: 'INR',
+        postedDate: DateTime.now(),
+      ));
+
+      provider.boostJob('job-test', BoostType.urgent, 7);
+      provider.boostJob('job-featured', BoostType.featured, 7);
+
+      expect(provider.rankedJobs.first.id, 'job-test');
+    });
+
+    test('an expired boost stops lifting the job', () {
+      final expired = masonJob().copyWith(
+        boost: JobBoost(
+          type: BoostType.urgent,
+          startsAt: DateTime.now().subtract(const Duration(days: 10)),
+          endsAt: DateTime.now().subtract(const Duration(days: 3)),
+          amount: 900,
+          currency: 'INR',
+        ),
+      );
+
+      // Nothing runs on a closed handset to expire it, so this has to fall out
+      // of the dates rather than a stored flag.
+      expect(expired.isBoosted, isFalse);
+      expect(expired.boostPriority, 0);
+    });
+
+    test('an unverified company cannot buy a boost', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      provider.updateCompany(
+          const CompanyProfile(name: 'Unchecked Ltd', email: 'a@b.com'));
+      provider.postJob(masonJob());
+
+      expect(provider.boostJob('job-test', BoostType.urgent, 7), isFalse,
+          reason: 'selling prominence to a business nobody has checked is '
+              'the opposite of what verification is for');
+      expect(provider.charges, isEmpty);
+    });
+
+    test('a longer boost costs less per day', () {
+      final threeDays = BoostPricing.priceFor(BoostType.featured, 3, 'SG') / 3;
+      final thirtyDays =
+          BoostPricing.priceFor(BoostType.featured, 30, 'SG') / 30;
+
+      expect(thirtyDays, lessThan(threeDays));
+    });
+
+    test('the boost survives a restart and reaches the seeker app', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      verify(provider);
+      provider.postJob(masonJob());
+      provider.boostJob('job-test', BoostType.sponsored, 14);
+      await provider.flush();
+
+      final reopened = newProvider();
+      await reopened.hydrate();
+
+      expect(reopened.jobById('job-test')!.isBoosted, isTrue);
+      expect(reopened.charges, hasLength(1));
+
+      // The seeker app reads this exact shape off the posting.
+      final json = reopened.jobById('job-test')!.toJson();
+      expect(json['boost'], isNotNull);
+      expect((json['boost'] as Map)['type'], 'sponsored');
+    });
+  });
+
   group('pipeline', () {
     test('a stage change and a note survive a restart', () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
       final candidate = provider.candidatesFor('job-test').first;
@@ -405,7 +553,7 @@ void main() {
       provider.addNote(candidate.id, 'Called 28 Aug, free next week.');
       await provider.flush();
 
-      final reopened = EmployerProvider();
+      final reopened = newProvider();
       await reopened.hydrate();
 
       expect(reopened.candidateById(candidate.id)!.status,
@@ -416,7 +564,7 @@ void main() {
 
     test('archiving removes a candidate from the tables but not the database',
         () async {
-      final provider = EmployerProvider();
+      final provider = newProvider();
       await provider.hydrate();
       provider.postJob(masonJob());
       final candidate = provider.candidatesFor('job-test').first;

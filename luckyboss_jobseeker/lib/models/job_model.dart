@@ -58,6 +58,50 @@ class JobModel {
   final bool transportProvided;
   final bool permitSponsored;
 
+  // ---------------------------------------------------------------------------
+  // PROMOTION — spec §61
+  //
+  // An employer can pay to lift one vacancy above the rest. Carried on the job
+  // itself rather than fetched separately, so the feed can rank and badge
+  // offline like everything else here.
+  //
+  // The badge says what the *hiring situation* is — "Urgent hiring",
+  // "Featured" — rather than announcing that money changed hands. Both are
+  // true, and the first is the one a candidate can act on: a vacancy someone is
+  // paying to fill this week is genuinely worth seeing first.
+  // ---------------------------------------------------------------------------
+
+  /// 'featured', 'urgent', 'sponsored', or empty when not promoted.
+  final String boostType;
+
+  /// When the promotion stops. A boost expires on its own rather than needing
+  /// something to switch it off — nothing runs on a handset that is closed.
+  final DateTime? boostEndsAt;
+
+  /// True while the promotion is running.
+  bool get isBoosted =>
+      boostType.isNotEmpty &&
+      (boostEndsAt == null || boostEndsAt!.isAfter(DateTime.now()));
+
+  /// What the candidate sees on the card.
+  String get boostLabel => switch (boostType) {
+        'urgent' => 'Urgent hiring',
+        'sponsored' => 'Sponsored',
+        'featured' => 'Featured',
+        _ => '',
+      };
+
+  /// Ranking weight. Zero once expired, so an old boost stops lifting a job.
+  int get boostPriority {
+    if (!isBoosted) return 0;
+    return switch (boostType) {
+      'urgent' => 30,
+      'sponsored' => 20,
+      'featured' => 10,
+      _ => 0,
+    };
+  }
+
   /// True for the sample vacancies bundled with the app. Carried through from
   /// the catalogue so these rows stay identifiable after they are loaded into
   /// MySQL, and can be removed in one statement once real postings arrive.
@@ -90,6 +134,8 @@ class JobModel {
     this.transportProvided = false,
     this.permitSponsored = false,
     this.isSeed = false,
+    this.boostType = '',
+    this.boostEndsAt,
   });
 
   /// Builds a job from one row of the catalogue.
@@ -134,6 +180,16 @@ class JobModel {
       transportProvided: (j['transport_provided'] as bool?) ?? false,
       permitSponsored: (j['permit_sponsored'] as bool?) ?? false,
       isSeed: (j['seed'] as bool?) ?? false,
+      // Written by the employer app as a nested object; flat keys are accepted
+      // too so a server can send either shape.
+      boostType: (j['boost'] is Map
+              ? (j['boost'] as Map)['type'] as String?
+              : j['boost_type'] as String?) ??
+          '',
+      boostEndsAt: DateTime.tryParse((j['boost'] is Map
+              ? (j['boost'] as Map)['ends_at'] as String?
+              : j['boost_ends_at'] as String?) ??
+          ''),
     );
   }
 

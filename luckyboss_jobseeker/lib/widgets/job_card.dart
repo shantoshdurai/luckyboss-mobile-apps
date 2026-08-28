@@ -53,6 +53,14 @@ class JobCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // The promotion mark, above the title so it is the first thing
+              // read on the card — spec §61. It names the hiring situation
+              // ("Urgent hiring") rather than announcing a payment, which is
+              // both true and the part a candidate can use.
+              if (job.isBoosted) ...[
+                _BoostMark(label: job.boostLabel, type: job.boostType),
+                const SizedBox(height: 10),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -207,4 +215,53 @@ class JobCard extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// The mark on a promoted vacancy.
+///
+/// Kept quiet on purpose. A boosted job already wins by being first; a loud
+/// badge on every third card would make the whole feed feel like advertising,
+/// which costs the candidate's trust in all of it — including the boosted ones
+/// the employer paid for.
+class _BoostMark extends StatelessWidget {
+  final String label;
+  final String type;
+
+  const _BoostMark({required this.label, required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final (tint, wash, icon) = switch (type) {
+      'urgent' => (
+          AppTheme.signalClosed,
+          AppTheme.signalClosedWash,
+          Icons.bolt
+        ),
+      'sponsored' => (
+          AppTheme.signalSource,
+          AppTheme.signalSourceWash,
+          Icons.campaign_outlined
+        ),
+      _ => (
+          AppTheme.signalAttention,
+          AppTheme.signalAttentionWash,
+          Icons.star_rounded
+        ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration:
+          BoxDecoration(color: wash, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: tint),
+          const SizedBox(width: 5),
+          Text(label,
+              style: AppTheme.sansBold(fontSize: 10.5, color: tint)),
+        ],
+      ),
+    );
+  }
 }

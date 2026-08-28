@@ -1,4 +1,5 @@
 import '../core/constants/app_data.dart';
+import 'job_boost.dart';
 
 /// Where a vacancy is in its life.
 enum JobStatus {
@@ -102,6 +103,11 @@ class EmployerJobModel {
   final bool trainingProvided;
 
   final int vacancies;
+
+  /// The promotion bought for this vacancy, spec §61. Null when unboosted,
+  /// which is most jobs.
+  final JobBoost? boost;
+
   final JobStatus status;
   final DateTime postedDate;
   final DateTime? closingDate;
@@ -133,9 +139,18 @@ class EmployerJobModel {
     this.permitSponsored = false,
     this.trainingProvided = false,
     this.vacancies = 1,
+    this.boost,
     this.status = JobStatus.published,
     this.closingDate,
   });
+
+  /// Whether this job is currently promoted. Checked through the boost's own
+  /// dates, so one expires without anything having to sweep it up.
+  bool get isBoosted => boost?.isActive ?? false;
+
+  /// Ranking weight in the candidate's feed. Zero for an unboosted or expired
+  /// job, which is the overwhelming majority.
+  int get boostPriority => boost?.priority ?? 0;
 
   bool get isFieldWork => AppData.isFieldCategory(category);
 
@@ -166,6 +181,7 @@ class EmployerJobModel {
     DateTime? closingDate,
     String? companyName,
     bool? companyVerified,
+    JobBoost? boost,
   }) =>
       EmployerJobModel(
         id: id,
@@ -193,6 +209,7 @@ class EmployerJobModel {
         permitSponsored: permitSponsored,
         trainingProvided: trainingProvided,
         vacancies: vacancies ?? this.vacancies,
+        boost: boost ?? this.boost,
         status: status ?? this.status,
         postedDate: postedDate,
         closingDate: closingDate ?? this.closingDate,
@@ -227,6 +244,9 @@ class EmployerJobModel {
         'permit_sponsored': permitSponsored,
         'training_provided': trainingProvided,
         'vacancies': vacancies,
+        // Travels with the posting so the seeker app can rank and badge it
+        // without a second call.
+        'boost': boost?.toJson(),
         'status': status.name,
         'posted_at': postedDate.toIso8601String(),
         'closing_at': closingDate?.toIso8601String(),
@@ -263,6 +283,9 @@ class EmployerJobModel {
       permitSponsored: (j['permit_sponsored'] as bool?) ?? false,
       trainingProvided: (j['training_provided'] as bool?) ?? false,
       vacancies: (j['vacancies'] as num?)?.toInt() ?? 1,
+      boost: j['boost'] == null
+          ? null
+          : JobBoost.fromJson(j['boost'] as Map<String, dynamic>),
       status: JobStatus.values.firstWhere(
         (s) => s.name == j['status'],
         orElse: () => JobStatus.published,

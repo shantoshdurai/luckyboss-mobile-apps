@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/employer_models.dart';
+import '../models/job_boost.dart';
 import '../models/uploaded_document.dart';
 
 /// Everything the company owns, kept on this handset.
@@ -29,6 +30,7 @@ class EmployerStore {
   static const String _candidateStateKey = 'luckyboss_candidate_state_v1';
   static const String _notesKey = 'luckyboss_employer_notes_v1';
   static const String _documentIndexKey = 'luckyboss_employer_documents_v1';
+  static const String _chargesKey = 'luckyboss_employer_charges_v1';
   static const String _documentBytesPrefix = 'luckyboss_employer_doc_';
 
   static Future<SharedPreferences> get _prefs =>
@@ -116,6 +118,28 @@ class EmployerStore {
     }
   }
 
+  // ---------------------------------------------------- charges, spec §66
+
+  static Future<void> saveCharges(List<EmployerCharge> charges) => _write(
+        _chargesKey,
+        jsonEncode(charges.map((c) => c.toJson()).toList()),
+      );
+
+  static Future<List<EmployerCharge>> loadCharges() async {
+    final raw = await _read(_chargesKey);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => EmployerCharge.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[EmployerStore] charges unreadable, discarding: $e');
+      await clearKey(_chargesKey);
+      return [];
+    }
+  }
+
   // ---------------------------------------------------------------- documents
 
   static Future<List<UploadedDocument>> loadDocuments() async {
@@ -169,6 +193,7 @@ class EmployerStore {
       _candidateStateKey,
       _notesKey,
       _documentIndexKey,
+      _chargesKey,
     ]) {
       await clearKey(key);
     }
