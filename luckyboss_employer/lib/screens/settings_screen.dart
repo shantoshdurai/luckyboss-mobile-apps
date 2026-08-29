@@ -5,6 +5,7 @@ import '../core/theme/app_theme.dart';
 import '../models/employer_job.dart';
 import '../providers/employer_provider.dart';
 import 'auth/employer_login_screen.dart';
+import '../widgets/reviewer_tools.dart';
 import 'auth/verification_pending_screen.dart';
 
 /// Settings.
@@ -34,6 +35,8 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
         children: [
           _VerificationCard(company: company),
+          const SizedBox(height: 12),
+          const ReviewerTools(),
           const SizedBox(height: 18),
 
           _section(context, 'Appearance'),

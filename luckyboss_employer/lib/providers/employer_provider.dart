@@ -55,6 +55,33 @@ class EmployerProvider extends ChangeNotifier {
   /// Deliberately lands on [CompanyStatus.submitted] and stops there. The app
   /// must never verify itself — that is the same lie as the old fake auth, and
   /// an employer badge nobody checked is worse than no badge at all.
+  /// Approves this company from inside the app, for review and demos.
+  ///
+  /// This is a testing shortcut and it is labelled as one everywhere it
+  /// appears. It exists because verification is a server decision and there is
+  /// no server yet, so without it nobody — including sir — can reach posting,
+  /// boosting or contact credits at all. The alternative was leaving the whole
+  /// second half of the app unreachable in every build we hand over.
+  ///
+  /// It must not survive into production. When the Laravel endpoint lands,
+  /// delete this method: the UI that calls it is already isolated behind
+  /// [ReviewerTools], and only the server should ever set
+  /// [CompanyStatus.verified].
+  void approveForReview() {
+    _company = _company.copyWith(
+      id: companyId,
+      status: CompanyStatus.verified,
+    );
+    notifyListeners();
+  }
+
+  /// Puts the company back to awaiting verification, so the gate can be
+  /// demonstrated in both directions.
+  void revokeApproval() {
+    _company = _company.copyWith(status: CompanyStatus.submitted);
+    notifyListeners();
+  }
+
   void submitForVerification() {
     _company = _company.copyWith(
       id: companyId,

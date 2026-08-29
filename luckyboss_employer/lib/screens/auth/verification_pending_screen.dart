@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/employer_job.dart';
 import '../../providers/employer_provider.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
+import '../../widgets/reviewer_tools.dart';
 import '../employer_main_navigation_screen.dart';
 
 /// Where a company waits after registering.
@@ -80,6 +81,8 @@ class VerificationPendingScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
               _StatusRow(company: company),
+              const SizedBox(height: 20),
+              const ReviewerTools(),
 
               const Spacer(),
 

@@ -20,11 +20,13 @@ import '../../models/employer_job.dart';
 class EmployerDashboardTab extends StatelessWidget {
   final VoidCallback? onOpenJobs;
   final VoidCallback? onOpenCandidates;
+  final VoidCallback? onMenu;
 
   const EmployerDashboardTab({
     super.key,
     this.onOpenJobs,
     this.onOpenCandidates,
+    this.onMenu,
   });
 
   @override
@@ -41,6 +43,11 @@ class EmployerDashboardTab extends StatelessWidget {
           children: [
             Row(
               children: [
+                IconButton(
+                  onPressed: onMenu,
+                  tooltip: 'Menu',
+                  icon: Icon(Icons.menu, color: AppTheme.inkOf(context)),
+                ),
                 const LuckyBossBrandLogo(height: 30),
                 const Spacer(),
                 IconButton(
