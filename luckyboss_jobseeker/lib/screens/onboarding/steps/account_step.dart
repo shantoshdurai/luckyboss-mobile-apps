@@ -18,7 +18,7 @@ import '../../../widgets/onboarding_components.dart';
 /// The phone number is already known — it was typed on the sign-in screen and
 /// verified — so it is shown rather than asked for again. Re-asking is how a
 /// form tells somebody their last answer was not received.
-class AccountStep extends StatelessWidget {
+class AccountStep extends StatefulWidget {
   final OnboardingData data;
   final String phone;
   final VoidCallback onChanged;
@@ -36,6 +36,24 @@ class AccountStep extends StatelessWidget {
     required this.emailController,
     required this.passwordController,
   });
+
+  @override
+  State<AccountStep> createState() => _AccountStepState();
+}
+
+class _AccountStepState extends State<AccountStep> {
+  // Anchors so finishing one answer carries you to the next, the same as the
+  // trade and field-details steps. This step had none, which is why the
+  // reveal animation felt inconsistent between tabs.
+  final GlobalKey _emailKey = GlobalKey();
+  final GlobalKey _passwordKey = GlobalKey();
+
+  OnboardingData get data => widget.data;
+  String get phone => widget.phone;
+  void onChanged() => widget.onChanged();
+  TextEditingController get nameController => widget.nameController;
+  TextEditingController get emailController => widget.emailController;
+  TextEditingController get passwordController => widget.passwordController;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +110,7 @@ class AccountStep extends StatelessWidget {
             context,
             controller: nameController,
             hint: 'As employers should see it',
+            next: _emailKey,
             onChanged: (v) {
               data.name = v;
               onChanged();
@@ -100,6 +119,7 @@ class AccountStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _emailKey,
           label: 'Email',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,6 +130,7 @@ class AccountStep extends StatelessWidget {
                 hint: 'you@example.com',
                 keyboard: TextInputType.emailAddress,
                 capitalise: false,
+                next: _passwordKey,
                 onChanged: (v) {
                   data.email = v;
                   onChanged();
@@ -127,6 +148,7 @@ class AccountStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _passwordKey,
           label: 'Password',
           visible: emailController.text.trim().isNotEmpty,
           child: Column(
@@ -167,13 +189,23 @@ class AccountStep extends StatelessWidget {
     TextInputType? keyboard,
     bool capitalise = true,
     bool obscure = false,
+
+    /// Where the next question is. Submitting scrolls to it.
+    GlobalKey? next,
   }) =>
       TextField(
         controller: controller,
         keyboardType: keyboard,
         obscureText: obscure,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+        textInputAction:
+            next == null ? TextInputAction.done : TextInputAction.next,
+        onSubmitted: (_) {
+          if (next == null) {
+            FocusScope.of(context).unfocus();
+          } else {
+            revealNextQuestion(next);
+          }
+        },
         textCapitalization:
             capitalise ? TextCapitalization.words : TextCapitalization.none,
         onChanged: onChanged,

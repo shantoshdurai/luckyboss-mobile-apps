@@ -10,17 +10,30 @@ import '../../../widgets/onboarding_components.dart';
 /// A candidate with a job title gives employers a far stronger matching signal
 /// than a degree does, which is why this branch asks for the title first and
 /// treats education as optional detail to be added later from the profile.
-class WorkStep extends StatelessWidget {
+class WorkStep extends StatefulWidget {
   final OnboardingData data;
   final VoidCallback onChanged;
 
   const WorkStep({super.key, required this.data, required this.onChanged});
 
+  @override
+  State<WorkStep> createState() => _WorkStepState();
+}
+
+class _WorkStepState extends State<WorkStep> {
   /// Notice period drives when a candidate can actually start, which is one of
   /// the first things a recruiter filters on.
   static const List<String> _noticePeriods = [
     'Immediately', '15 days', '1 month', '2 months', '3 months', 'Serving notice',
   ];
+
+  // Anchors, so answering carries you down the page the way the trade step
+  // does. Without them this step sat still while the others moved.
+  final GlobalKey _companyKey = GlobalKey();
+  final GlobalKey _experienceKey = GlobalKey();
+
+  OnboardingData get data => widget.data;
+  void onChanged() => widget.onChanged();
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +57,7 @@ class WorkStep extends StatelessWidget {
             value: data.currentTitle,
             hint: 'e.g. Warehouse Supervisor, Staff Nurse, Flutter Developer',
             capitalise: true,
+            next: _companyKey,
             onChanged: (v) {
               data.currentTitle = v;
               onChanged();
@@ -52,6 +66,7 @@ class WorkStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _companyKey,
           label: 'Company',
           child: _field(
             context,
@@ -59,6 +74,7 @@ class WorkStep extends StatelessWidget {
             value: data.currentCompany,
             hint: 'Where you work, or last worked',
             capitalise: true,
+            next: _experienceKey,
             onChanged: (v) {
               data.currentCompany = v;
               onChanged();
@@ -67,6 +83,7 @@ class WorkStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _experienceKey,
           label: 'Total experience *',
           child: _experienceStepper(context),
         ),
@@ -152,10 +169,22 @@ class WorkStep extends StatelessWidget {
     required String hint,
     required ValueChanged<String> onChanged,
     bool capitalise = false,
+
+    /// Where the next question is. Submitting scrolls to it.
+    GlobalKey? next,
   }) {
     return TextFormField(
       key: ValueKey('work-$id'),
       initialValue: value,
+      textInputAction:
+          next == null ? TextInputAction.done : TextInputAction.next,
+      onFieldSubmitted: (_) {
+        if (next == null) {
+          FocusScope.of(context).unfocus();
+        } else {
+          revealNextQuestion(next);
+        }
+      },
       textCapitalization:
           capitalise ? TextCapitalization.words : TextCapitalization.none,
       onChanged: onChanged,

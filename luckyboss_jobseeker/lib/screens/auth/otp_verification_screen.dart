@@ -136,34 +136,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.signalSource),
                 ),
               ),
-              const SizedBox(height: 20),
-              InkWell(
-                onTap: () {
-                  setState(() => _code = '123456');
-                  _verify();
-                },
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.signalPositiveWash,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.signalPositive.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.touch_app_outlined, size: 16, color: AppTheme.signalPositive),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Demo OTP: 123456 (Tap to auto-verify)',
-                        style: AppTheme.sansSemiBold(fontSize: 12.5, color: AppTheme.signalPositive),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               OtpCodeField(
                 key: _codeKey,

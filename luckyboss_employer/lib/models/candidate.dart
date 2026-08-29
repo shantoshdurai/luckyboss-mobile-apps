@@ -138,11 +138,23 @@ class Candidate {
   /// Spec §27 requires a rule-based fallback when AI scoring is unavailable.
   /// This is it: no model, no network, and it always returns something.
   double matchFor(EmployerJobModel job) {
-    final sameRole = role.trim().toLowerCase() == job.role.trim().toLowerCase();
-    final sameCategory = category == job.category;
+    final jobRoles = job.role
+        .split(',')
+        .map((r) => r.trim().toLowerCase())
+        .where((r) => r.isNotEmpty)
+        .toList();
+    final candRole = role.trim().toLowerCase();
+    final exactRole = jobRoles.contains(candRole) ||
+        jobRoles.any((jr) => jr == candRole || jr.contains(candRole) || candRole.contains(jr));
+    final sameCategory = category.trim().toLowerCase() == job.category.trim().toLowerCase();
 
     var score = 0.0;
-    score += sameRole ? 45 : 0;
+    if (exactRole) {
+      score += 45;
+    } else if (sameCategory) {
+      score += 35; // Related role affinity in same category
+    }
+
     score += sameCategory ? 25 : 0;
 
     if (job.requiredSkills.isNotEmpty) {
@@ -165,25 +177,35 @@ class Candidate {
       score += (held / job.requiredCertificates.length) * 10;
     }
 
-    // A licence the job insists on and the candidate does not hold is a hard
-    // ceiling. Ranking somebody at 80% for a job they cannot legally do wastes
-    // a recruiter's call and the candidate's afternoon.
+    if (yearsExperience >= 2) {
+      score += 5;
+    }
+
     if (missing.length == job.requiredCertificates.length &&
         job.requiredCertificates.isNotEmpty) {
       score = score.clamp(0, 55);
     }
 
-    return score.clamp(0, 100).toDouble();
+    return score.clamp(0, 98).toDouble();
   }
 
   /// Spec §26 — why this candidate scored what they scored, in plain terms.
   /// A number with no explanation is not something a recruiter can act on.
   List<String> matchReasons(EmployerJobModel job) {
     final reasons = <String>[];
-    if (role.trim().toLowerCase() == job.role.trim().toLowerCase()) {
-      reasons.add('Works as a ${job.role}');
-    } else if (category == job.category) {
-      reasons.add('Works in ${job.category}');
+    final jobRoles = job.role
+        .split(',')
+        .map((r) => r.trim().toLowerCase())
+        .where((r) => r.isNotEmpty)
+        .toList();
+    final candRole = role.trim().toLowerCase();
+    final exactRole = jobRoles.contains(candRole) ||
+        jobRoles.any((jr) => jr == candRole || jr.contains(candRole) || candRole.contains(jr));
+
+    if (exactRole) {
+      reasons.add('Works as a $role');
+    } else if (category.trim().toLowerCase() == job.category.trim().toLowerCase()) {
+      reasons.add('Works in $category');
     }
     if (yearsExperience > 0) {
       reasons.add('$experienceLabel of experience');

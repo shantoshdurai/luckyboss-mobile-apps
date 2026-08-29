@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/resume_service.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/city_field.dart';
+import '../auth/sign_in_screen.dart';
 import '../main_navigation_screen.dart';
 import 'steps/account_step.dart';
 import 'steps/education_step.dart';
@@ -93,7 +94,10 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
       };
 
   void _next() {
-    if (!_canAdvance) return;
+    if (!_canAdvance) {
+      _sayWhatIsLeft();
+      return;
+    }
     // Put the keyboard away before moving. A new step is a new question, and
     // one asked from behind a keyboard reads as a form that will not end.
     _dismissKeyboard();
@@ -109,10 +113,39 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     );
   }
 
+  /// Names the unanswered questions instead of doing nothing.
+  ///
+  /// The button used to be greyed out, which told the candidate they were stuck
+  /// but not why — and on the last step it looked like the app had simply
+  /// refused to finish.
+  void _sayWhatIsLeft() {
+    final missing = _data.missingFor(_step);
+    if (missing.isEmpty) return;
+
+    final what = missing.length == 1
+        ? missing.first
+        : '${missing.take(missing.length - 1).join(', ')} and ${missing.last}';
+
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      duration: const Duration(seconds: 4),
+      content: Text(_step == _totalSteps - 1
+          ? 'Almost done — we still need $what.'
+          : 'We still need $what.'),
+    ));
+  }
+
   void _back() {
     _dismissKeyboard();
     if (_step == 0) {
-      Navigator.maybePop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SignInScreen()),
+        );
+      }
       return;
     }
     setState(() => _step--);
@@ -349,15 +382,6 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // The same trade picker the field path opens with, so every category
-        // offers its own jobs.
-        TradeStep(data: _data, onChanged: () => setState(() {})),
-        const SizedBox(height: 30),
-        Divider(color: Theme.of(context).dividerColor),
-        const SizedBox(height: 22),
-        // Resume autofill is offered on the professional path only. A candidate
-        // who has never had a CV written for them is not helped by being asked
-        // to upload one — it reads as a requirement they cannot meet.
         AiAutofillBanner(
           onUpload: _uploadResume,
           busy: _parsingResume,
@@ -540,12 +564,17 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
               child: SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _canAdvance ? _next : null,
+                  // Always tappable. A dead button cannot tell anyone what is
+                  // missing; this one is styled as unavailable but still
+                  // answers when pressed.
+                  onPressed: _next,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryFillOf(context),
-                    foregroundColor: AppTheme.onPrimaryFillOf(context),
-                    disabledBackgroundColor: Theme.of(context).dividerColor,
-                    disabledForegroundColor: AppTheme.inkFaintOf(context),
+                    backgroundColor: _canAdvance
+                        ? AppTheme.primaryFillOf(context)
+                        : Theme.of(context).dividerColor,
+                    foregroundColor: _canAdvance
+                        ? AppTheme.onPrimaryFillOf(context)
+                        : AppTheme.inkFaintOf(context),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15)),

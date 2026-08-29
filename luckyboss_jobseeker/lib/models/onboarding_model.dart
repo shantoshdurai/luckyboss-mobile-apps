@@ -221,4 +221,43 @@ class OnboardingData {
   /// Only the market is required. The rest sharpen matching, and a candidate
   /// who wants to get to the job list should not be held at a preferences form.
   bool get preferencesStepComplete => preferredCountries.isNotEmpty;
+
+  /// What is still missing on [step], in the candidate's own words.
+  ///
+  /// The wizard used to grey the button out and say nothing, so somebody who
+  /// had answered four of five questions was left tapping a dead control with
+  /// no idea which one was left. Shantosh: *"in finsh beutton when they press
+  /// say them and direct them what to fill and left so they know its not
+  /// compelted"*. Empty means the step is done.
+  List<String> missingFor(int step) => switch (step) {
+        0 => [
+            if (name.trim().isEmpty) 'your name',
+          ],
+        1 => [
+            if (categories.isEmpty) 'the kind of work you want',
+          ],
+        2 => isFieldWork
+            ? [
+                if (roleTitle.trim().isEmpty) 'the job you do',
+              ]
+            : [
+                if (track == null) 'whether you are studying or working',
+                if (currentCity.trim().isEmpty) 'the city you live in',
+                if (isStudent && qualification == null) 'your qualification',
+                if (isStudent &&
+                    qualification != null &&
+                    !educationStepComplete)
+                  'the rest of your education details',
+                if (!isStudent && currentTitle.trim().isEmpty)
+                  'your current job title',
+              ],
+        3 => isFieldWork
+            ? [
+                if (currentCity.trim().isEmpty) 'the city you live in',
+              ]
+            : [
+                if (skills.isEmpty) 'at least one skill',
+              ],
+        _ => const [],
+      };
 }

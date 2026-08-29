@@ -10,6 +10,7 @@ import '../../services/document_service.dart';
 import '../../widgets/city_field.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/searchable_chip_picker.dart';
+import 'employer_login_screen.dart';
 import 'verification_pending_screen.dart';
 
 /// Registering a company — a submission for checking, not a sign-up.
@@ -136,8 +137,54 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
 
   void _dismissKeyboard() => dismissKeyboard(context);
 
+  /// What is still missing on this step, named rather than counted.
+  ///
+  /// The hint under the button used to say "fill in the starred fields", which
+  /// is only useful to somebody who can already see which one they skipped.
+  List<String> get _missing => switch (_step) {
+        0 => [
+            if (_name.text.trim().isEmpty) 'the company name',
+            if (_type.isEmpty) 'the business type',
+            if (_registrationNumber.text.trim().isEmpty)
+              'the registration number',
+            if (_city.text.trim().isEmpty) 'the city',
+          ],
+        1 => [
+            if (_contactName.text.trim().isEmpty) 'a contact name',
+            if (!_email.text.trim().contains('@')) 'a valid email',
+            if (_phone.text.trim().length < 7) 'a phone number',
+          ],
+        2 => [
+            if (!_hasRequiredDocuments)
+              'your business registration certificate',
+          ],
+        _ => const [],
+      };
+
+  String get _missingSentence {
+    final missing = _missing;
+    if (missing.isEmpty) return '';
+    final what = missing.length == 1
+        ? missing.first
+        : '${missing.take(missing.length - 1).join(', ')} and ${missing.last}';
+    return 'We still need $what.';
+  }
+
+  void _sayWhatIsLeft() {
+    if (_missingSentence.isEmpty) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text(_missingSentence),
+      ));
+  }
+
   void _next() {
-    if (!_canAdvance) return;
+    if (!_canAdvance) {
+      _sayWhatIsLeft();
+      return;
+    }
     _dismissKeyboard();
     if (_step == _totalSteps - 1) {
       _submit();
@@ -151,7 +198,14 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
   void _back() {
     _dismissKeyboard();
     if (_step == 0) {
-      Navigator.maybePop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployerLoginScreen()),
+        );
+      }
       return;
     }
     setState(() => _step--);
@@ -570,21 +624,21 @@ controller: controller,
           children: [
             Expanded(
               child: Text(
-                switch (_step) {
-                  0 when !_canAdvance => 'Fill in the starred fields',
-                  1 when !_canAdvance => 'We need a name, email and phone',
-                  2 when !_canAdvance =>
-                    'Your business registration certificate is required',
-                  _ => '',
-                },
+                _canAdvance ? '' : _missingSentence,
                 style: AppTheme.sansMedium(
                     fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
               ),
             ),
             const SizedBox(width: 12),
             FilledButton(
-              onPressed: _canAdvance && !_submitting ? _next : null,
+              // Tappable unless a submit is already in flight: a dead button
+              // cannot tell anyone what is missing.
+              onPressed: _submitting ? null : _next,
               style: FilledButton.styleFrom(
+                backgroundColor:
+                    _canAdvance ? null : Theme.of(context).dividerColor,
+                foregroundColor:
+                    _canAdvance ? null : AppTheme.inkFaintOf(context),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
                 shape: RoundedRectangleBorder(
@@ -598,7 +652,9 @@ controller: controller,
                   : Text(last ? 'Send for verification' : 'Continue',
                       style: AppTheme.sansBold(
                           fontSize: 14.5,
-                          color: AppTheme.onInkOf(context))),
+                          color: _canAdvance
+                              ? AppTheme.onInkOf(context)
+                              : AppTheme.inkFaintOf(context))),
             ),
           ],
         ),

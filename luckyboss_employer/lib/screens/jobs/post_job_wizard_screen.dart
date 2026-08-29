@@ -8,6 +8,7 @@ import '../../providers/employer_provider.dart';
 import '../../widgets/city_field.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/searchable_chip_picker.dart';
+import '../employer_main_navigation_screen.dart';
 
 /// Posting a vacancy, rebuilt as the mirror of the candidate's onboarding.
 ///
@@ -64,7 +65,8 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
 
   // --- answers ---
   String _category = '';
-  String _role = '';
+  final Set<String> _roles = {};
+  String get _role => _roles.join(', ');
   final Set<String> _skills = {};
   final Set<String> _certificates = {};
   String _country = 'SG';
@@ -90,7 +92,7 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
   WorkCategory? get _workCategory => AppData.categoryByName(_category);
 
   bool get _canAdvance => switch (_step) {
-        0 => _category.isNotEmpty && _role.isNotEmpty,
+        0 => _category.isNotEmpty && _roles.isNotEmpty,
         1 => true,
         2 => _cityController.text.trim().isNotEmpty,
         3 => true,
@@ -110,8 +112,43 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
 
   void _dismissKeyboard() => dismissKeyboard(context);
 
+  /// What is still missing on this step, in the employer's own words.
+  List<String> get _missing => switch (_step) {
+        0 => [
+            if (_category.isEmpty) 'the kind of work',
+            if (_roles.isEmpty) 'the job you are hiring for',
+          ],
+        2 => [
+            if (_cityController.text.trim().isEmpty) 'the city',
+          ],
+        _ => const [],
+      };
+
+  /// Names the unanswered questions rather than doing nothing.
+  ///
+  /// A greyed-out button says "you are stuck" and nothing else, which on the
+  /// last step reads as the app refusing to post the job.
+  void _sayWhatIsLeft() {
+    final missing = _missing;
+    if (missing.isEmpty) return;
+
+    final what = missing.length == 1
+        ? missing.first
+        : '${missing.take(missing.length - 1).join(', ')} and ${missing.last}';
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text('Before this job can go up we still need $what.'),
+      ));
+  }
+
   void _next() {
-    if (!_canAdvance) return;
+    if (!_canAdvance) {
+      _sayWhatIsLeft();
+      return;
+    }
     _dismissKeyboard();
     if (_step == _totalSteps - 1) {
       _publish();
@@ -125,7 +162,14 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
   void _back() {
     _dismissKeyboard();
     if (_step == 0) {
-      Navigator.maybePop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployerMainNavigationScreen()),
+        );
+      }
       return;
     }
     setState(() => _step--);
@@ -352,9 +396,7 @@ controller: controller,
                 onTap: () {
                   setState(() {
                     if (_category != category.name) {
-                      // The old role belongs to a vocabulary that no longer
-                      // applies. Keeping it would post a Plumber under Security.
-                      _role = '';
+                      _roles.clear();
                       _skills.clear();
                       _certificates.clear();
                     }
@@ -405,20 +447,22 @@ controller: controller,
 
         RevealedField(
           key: _roleKey,
-          label: 'Which job? *',
+          label: 'Which job? * (Select one or more)',
           visible: _workCategory != null,
           child: SearchableChipPicker(
             options: _workCategory?.roleNames ?? const [],
-            selected: {if (_role.isNotEmpty) _role},
-            single: true,
+            selected: _roles,
+            single: false,
             searchHint: 'Search trades, or type your own',
             onToggle: (r) {
               setState(() {
-                _role = _role == r ? '' : r;
-                _skills.clear();
-                _certificates.clear();
+                if (_roles.contains(r)) {
+                  _roles.remove(r);
+                } else {
+                  _roles.add(r);
+                }
               });
-              if (_role.isNotEmpty) revealNextQuestion(_vacanciesKey);
+              if (_roles.isNotEmpty) revealNextQuestion(_vacanciesKey);
             },
           ),
         ),
@@ -426,7 +470,7 @@ controller: controller,
         RevealedField(
           key: _vacanciesKey,
           label: 'How many people do you need?',
-          visible: _role.isNotEmpty,
+          visible: _roles.isNotEmpty,
           child: Row(
             children: [
               for (final n in [1, 2, 5, 10, 20, 50])
@@ -449,10 +493,21 @@ controller: controller,
   // ---------------------------------------------------------------- step two
 
   Widget _requirementsStep() {
-    final abilities =
-        AppData.abilitiesFor(category: _category, role: _role);
-    final certificates =
-        AppData.certificatesFor(category: _category, role: _role);
+    final List<String> abilities = [];
+    final List<String> certificates = [];
+    if (_roles.isEmpty) {
+      abilities.addAll(AppData.abilitiesFor(category: _category));
+      certificates.addAll(AppData.certificatesFor(category: _category));
+    } else {
+      for (final r in _roles) {
+        for (final a in AppData.abilitiesFor(category: _category, role: r)) {
+          if (!abilities.contains(a)) abilities.add(a);
+        }
+        for (final c in AppData.certificatesFor(category: _category, role: r)) {
+          if (!certificates.contains(c)) certificates.add(c);
+        }
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,7 +531,7 @@ controller: controller,
 
         if (certificates.isNotEmpty)
           RevealedField(
-            label: 'Licences required for a $_role',
+            label: 'Licences & Certificates',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -860,8 +915,14 @@ controller: controller,
             ),
             const SizedBox(width: 12),
             FilledButton(
-              onPressed: _canAdvance ? _next : null,
+              // Always tappable, so the tap can say what is missing.
+              onPressed: _next,
               style: FilledButton.styleFrom(
+                backgroundColor: _canAdvance
+                    ? null
+                    : Theme.of(context).dividerColor,
+                foregroundColor:
+                    _canAdvance ? null : AppTheme.inkFaintOf(context),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 26, vertical: 15),
                 shape: RoundedRectangleBorder(
@@ -869,7 +930,10 @@ controller: controller,
               ),
               child: Text(last ? 'Post this job' : 'Continue',
                   style: AppTheme.sansBold(
-                      fontSize: 14.5, color: AppTheme.onInkOf(context))),
+                      fontSize: 14.5,
+                      color: _canAdvance
+                          ? AppTheme.onInkOf(context)
+                          : AppTheme.inkFaintOf(context))),
             ),
           ],
         ),

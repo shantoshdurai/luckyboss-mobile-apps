@@ -652,7 +652,7 @@ class AppData {
     WorkCategory(
       name: 'Healthcare & Nursing',
       icon: Icons.medical_services_outlined,
-      path: WorkPath.professional,
+      path: WorkPath.field,
       roles: [
         WorkRole(
           name: 'Staff Nurse',
@@ -1168,7 +1168,7 @@ class AppData {
     WorkCategory(
       name: 'Office & Administration',
       icon: Icons.business_center_outlined,
-      path: WorkPath.professional,
+      path: WorkPath.field,
       roles: [
         WorkRole(
           name: 'Admin Assistant',
@@ -1254,7 +1254,7 @@ class AppData {
     WorkCategory(
       name: 'Engineering',
       icon: Icons.engineering_outlined,
-      path: WorkPath.professional,
+      path: WorkPath.field,
       roles: [
         WorkRole(
           name: 'Civil Engineer',
@@ -1533,7 +1533,7 @@ class AppData {
     WorkCategory(
       name: 'Finance & Banking',
       icon: Icons.account_balance_outlined,
-      path: WorkPath.professional,
+      path: WorkPath.field,
       roles: [
         WorkRole(
           name: 'Accounts Executive',

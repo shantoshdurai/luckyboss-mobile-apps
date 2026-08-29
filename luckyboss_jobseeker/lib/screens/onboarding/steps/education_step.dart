@@ -11,11 +11,21 @@ import '../../../widgets/onboarding_components.dart';
 /// a board and language medium, a Graduate needs a course and specialisation.
 /// Showing all of them at once would put irrelevant fields in front of every
 /// candidate and make the form feel longer than it is.
-class EducationStep extends StatelessWidget {
+class EducationStep extends StatefulWidget {
   final OnboardingData data;
   final VoidCallback onChanged;
 
   const EducationStep({super.key, required this.data, required this.onChanged});
+
+  @override
+  State<EducationStep> createState() => _EducationStepState();
+}
+
+class _EducationStepState extends State<EducationStep> {
+  // Anchors, so picking a qualification carries you to the questions it
+  // reveals instead of leaving them off the bottom of the screen.
+  final GlobalKey _branchKey = GlobalKey();
+  final GlobalKey _yearKey = GlobalKey();
 
   static const List<String> _boards = [
     'CBSE', 'ICSE', 'State Board', 'IB', 'IGCSE', 'Other',
@@ -36,6 +46,9 @@ class EducationStep extends StatelessWidget {
     final now = DateTime.now().year;
     return List.generate(52, (i) => '${now + 1 - i}');
   }
+
+  OnboardingData get data => widget.data;
+  void onChanged() => widget.onChanged();
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +90,7 @@ class EducationStep extends StatelessWidget {
                         }
                         data.qualification = value;
                         onChanged();
+                        revealNextQuestion(_branchKey);
                       },
                     ))
                 .toList(),
@@ -85,6 +99,7 @@ class EducationStep extends StatelessWidget {
 
         if (chosen && q.isSchoolLevel) ...[
           RevealedField(
+            key: _branchKey,
             label: 'Examination board *',
             child: _wrapOf(_boards, data.examinationBoard, (v) {
               data.examinationBoard = v;
@@ -102,6 +117,7 @@ class EducationStep extends StatelessWidget {
 
         if (chosen && !q.isSchoolLevel) ...[
           RevealedField(
+            key: _branchKey,
             label: 'Course *',
             child: _wrapOf(_courses, data.course, (v) {
               data.course = v;
@@ -124,6 +140,7 @@ class EducationStep extends StatelessWidget {
 
         if (chosen)
           RevealedField(
+            key: _yearKey,
             label: 'Passing year *',
             child: _yearPicker(context),
           ),

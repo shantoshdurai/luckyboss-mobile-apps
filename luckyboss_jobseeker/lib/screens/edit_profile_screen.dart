@@ -204,16 +204,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             onToggle: (a) => _provider.setProfileField(
                 'availability', profile.availability == a ? '' : a),
           ),
+          // Several answers, because several countries. Somebody who is an
+          // Indian citizen and also holds a Singapore work permit had to throw
+          // one of those away, and it is the one that decides placement.
           _picker(
             label: 'Can you work there?',
             options: AppData.workPermitStatuses,
-            selected: {
-              if (profile.workPermitStatus.isNotEmpty) profile.workPermitStatus
-            },
-            single: true,
+            selected: profile.workPermitStatuses.toSet(),
             hint: '',
-            onToggle: (p) => _provider.setProfileField(
-                'permit', profile.workPermitStatus == p ? '' : p),
+            onToggle: (p) {
+              final next = [...profile.workPermitStatuses];
+              next.contains(p) ? next.remove(p) : next.add(p);
+              _provider.setProfileField('permit', next);
+            },
           ),
           _picker(
             label: 'Languages you speak',
