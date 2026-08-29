@@ -57,6 +57,13 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     setState(() => _busy = false);
 
     if (!result.success) {
+      // "No such account" is not an error to sit and stare at — it is the
+      // commonest thing that happens to a first-time user, and the only useful
+      // response is to offer to create one.
+      if (AuthService.isUnknownAccount(result.message)) {
+        _offerToCreateAccount(email);
+        return;
+      }
       setState(() => _error = result.message);
       return;
     }
@@ -78,6 +85,50 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
             : const ProfileWizardScreen(),
       ),
       (route) => false,
+    );
+  }
+
+  /// Offers to register when the email is not on this device.
+  Future<void> _offerToCreateAccount(String email) async {
+    final create = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('No account found',
+            style: AppTheme.sansBold(
+                fontSize: 17, color: AppTheme.inkOf(context))),
+        content: Text(
+          'We could not find an account for $email. Would you like to create '
+          'one? It takes about a minute.',
+          style: AppTheme.sansRegular(
+              fontSize: 14, color: AppTheme.inkMutedOf(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Try again',
+                style: AppTheme.sansMedium(
+                    fontSize: 14, color: AppTheme.inkMutedOf(context))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Create account',
+                style: AppTheme.sansBold(
+                    fontSize: 14, color: AppTheme.signalSource)),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (create != true) {
+      setState(() => _error = 'No account with that email yet.');
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
     );
   }
 

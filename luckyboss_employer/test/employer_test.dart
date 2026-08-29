@@ -321,6 +321,59 @@ void main() {
     });
   });
 
+  group('sign-in can fail', () {
+    test('an unregistered email is not an account', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+
+      // What the login screen checks. It used to accept any address and invent
+      // a company from the email domain, so there was no such thing as a wrong
+      // sign-in and sir would never see the path every real user hits first.
+      expect(provider.company.email, isEmpty);
+    });
+
+    test('registering leaves the company known and signed in', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+
+      provider.updateCompany(const CompanyProfile(
+        name: 'Ravi Constructions',
+        email: 'hr@ravi.com',
+        registrationNumber: '200812345K',
+        type: 'Construction',
+        contactName: 'Ravi',
+        phone: '+65 9000 0000',
+      ));
+      provider.submitForVerification();
+      provider.setAuthenticated(true);
+      await provider.flush();
+
+      final reopened = newProvider();
+      await reopened.hydrate();
+
+      expect(reopened.company.email, 'hr@ravi.com');
+      expect(reopened.company.status, CompanyStatus.submitted);
+      // Registered but not yet checked: in the app, still no posting.
+      expect(reopened.canPost, isFalse);
+    });
+
+    test('the reviewer switch unlocks the gated half', () async {
+      final provider = newProvider();
+      await provider.hydrate();
+      provider.updateCompany(
+          const CompanyProfile(name: 'Test', email: 'a@b.com'));
+      provider.submitForVerification();
+
+      expect(provider.canPost, isFalse);
+      provider.approveForReview();
+      expect(provider.canPost, isTrue);
+
+      // And back, so the gate can be shown working in both directions.
+      provider.revokeApproval();
+      expect(provider.canPost, isFalse);
+    });
+  });
+
   group('verification gates what a company can do', () {
     test('a new company cannot post or reach out', () async {
       final provider = newProvider();

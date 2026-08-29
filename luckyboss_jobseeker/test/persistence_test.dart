@@ -28,7 +28,16 @@ void main() {
   group('sign-in survives a restart', () {
     test('an on-device account is persisted and reads back', () async {
       // No server is reachable in a test, so this takes the offline path —
-      // exactly what happens on sir's handset.
+      // exactly what happens on sir's handset. Registering first, because
+      // sign-in now refuses an email it has never seen.
+      await AuthService.register(
+        name: 'Raja',
+        email: 'raja@example.com',
+        phone: '', countryCode: '+91',
+        password: 'password123',
+      );
+      await AuthService.logout();
+
       final result = await AuthService.login(
         email: 'raja@example.com',
         password: 'password123',
@@ -65,8 +74,41 @@ void main() {
           reason: 'a session must only exist after the code is verified');
     });
 
+    test('an unknown email is refused rather than invented', () async {
+      // Sir has to see the path every real user hits first. Any email with any
+      // password used to succeed, so there was no such thing as a wrong
+      // sign-in and a typo silently made a second, empty account.
+      final result =
+          await AuthService.login(email: 'nobody@example.com', password: 'password123');
+
+      expect(result.success, isFalse);
+      expect(AuthService.isUnknownAccount(result.message), isTrue);
+      expect(await AuthService.currentSession(), isNull);
+    });
+
+    test('the wrong password is refused', () async {
+      await AuthService.register(
+        name: 'Raja',
+        email: 'raja@example.com',
+        phone: '', countryCode: '+91',
+        password: 'password123',
+      );
+      await AuthService.logout();
+
+      final result = await AuthService.login(
+        email: 'raja@example.com',
+        password: 'not-the-password',
+      );
+
+      expect(result.success, isFalse);
+      expect(AuthService.isUnknownAccount(result.message), isFalse,
+          reason: 'a wrong password is not a missing account, and offering to '
+              'create one here would make a duplicate');
+    });
+
     test('no invented phone number or name is stored', () async {
-      await AuthService.login(email: 'a@b.com', password: 'password123');
+      await AuthService.register(
+        name: 'A', email: 'a@b.com', phone: '', countryCode: '+91', password: 'password123');
       final session = (await AuthService.currentSession())!;
 
       expect(session.phone, isNull,
@@ -79,7 +121,8 @@ void main() {
     });
 
     test('signing out clears the session', () async {
-      await AuthService.login(email: 'a@b.com', password: 'password123');
+      await AuthService.register(
+          name: 'A', email: 'a@b.com', phone: '', countryCode: '+91', password: 'password123');
       await AuthService.logout();
 
       expect(await AuthService.currentSession(), isNull);
@@ -88,7 +131,8 @@ void main() {
 
   group('the profile photo can be set without a server', () {
     test('a local account sends no Authorization header', () async {
-      await AuthService.login(email: 'a@b.com', password: 'password123');
+      await AuthService.register(
+          name: 'A', email: 'a@b.com', phone: '', countryCode: '+91', password: 'password123');
 
       final headers = await AuthService.authHeaders();
 
@@ -111,7 +155,7 @@ void main() {
         roleTitle: 'Mason',
         certificates: const ['Safety Orientation Course'],
         languages: const ['Tamil', 'English'],
-        workPermitStatus: 'Have a valid work permit',
+        workPermitStatuses: const ['Have a valid work permit'],
         payPeriod: 'Per day',
         isStudent: false,
         currentCity: 'Chennai',
@@ -281,7 +325,7 @@ void main() {
         skills: const ['Brickwork', 'Plastering', 'Concreting'],
         certificates: const ['Safety Orientation Course'],
         languages: const ['Tamil'],
-        workPermitStatus: 'Citizen',
+        workPermitStatuses: const ['Citizen'],
         availability: 'Immediately',
         photoUrl: 'data:image/jpeg;base64,AAAA',
       );

@@ -21,7 +21,7 @@ import '../../../widgets/onboarding_components.dart';
 /// * **Pay** is asked with its period attached. A site worker quotes a day rate.
 ///   A monthly-only field either gets left blank or gets a daily number typed
 ///   into it, which is worse than blank.
-class FieldDetailsStep extends StatelessWidget {
+class FieldDetailsStep extends StatefulWidget {
   final OnboardingData data;
   final TextEditingController cityController;
   final VoidCallback onChanged;
@@ -32,6 +32,25 @@ class FieldDetailsStep extends StatelessWidget {
     required this.cityController,
     required this.onChanged,
   });
+
+  @override
+  State<FieldDetailsStep> createState() => _FieldDetailsStepState();
+}
+
+class _FieldDetailsStepState extends State<FieldDetailsStep> {
+  // Anchors so answering one question scrolls to the next, the same as the
+  // trade step. This screen had none, which is the inconsistency Shantosh
+  // noticed: *"the flawless animation one after another is on one tab but not
+  // on others."*
+  final GlobalKey _countriesKey = GlobalKey();
+  final GlobalKey _permitKey = GlobalKey();
+  final GlobalKey _languagesKey = GlobalKey();
+  final GlobalKey _payKey = GlobalKey();
+  final GlobalKey _availabilityKey = GlobalKey();
+
+  OnboardingData get data => widget.data;
+  TextEditingController get cityController => widget.cityController;
+  void onChanged() => widget.onChanged();
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +75,7 @@ class FieldDetailsStep extends StatelessWidget {
               data.currentCity = v;
               onChanged();
             },
+            onSubmitted: (_) => revealNextQuestion(_countriesKey),
           ),
         ),
 
@@ -63,6 +83,7 @@ class FieldDetailsStep extends StatelessWidget {
         // should not have to pick a favourite — it halves the jobs we can put
         // in front of them for no benefit to anyone.
         RevealedField(
+          key: _countriesKey,
           label: 'Which countries can you work in?',
           child: _chips(
             AppData.countries.map((c) => c['name']!).toList(),
@@ -78,30 +99,33 @@ class FieldDetailsStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _permitKey,
           label: 'Can you work there?',
           child: _chips(
             AppData.workPermitStatuses,
-            isSelected: (s) => data.workPermitStatus == s,
+            isSelected: data.workPermitStatuses.contains,
             onTap: (s) {
-              data.workPermitStatus = data.workPermitStatus == s ? '' : s;
-              // Kept in step with the older boolean the matching engine still
-              // reads, so answering the better question also answers the old one.
-              data.hasWorkPermit = switch (s) {
-                'Citizen' ||
-                'Permanent Resident' ||
-                'Have a valid work permit' ||
-                'Have an employment pass' =>
-                  true,
-                'Need employer to sponsor a permit' => false,
-                _ => null,
+              if (!data.workPermitStatuses.remove(s)) {
+                data.workPermitStatuses.add(s);
+              }
+              // Kept in step with the older boolean the matching engine
+              // still reads. True if *any* answer means they can already work.
+              const allowed = {
+                'Citizen',
+                'Permanent Resident',
+                'Have a valid work permit',
+                'Have an employment pass',
               };
+              data.hasWorkPermit = data.workPermitStatuses.isEmpty
+                  ? null
+                  : data.workPermitStatuses.any(allowed.contains);
               onChanged();
             },
-            single: true,
           ),
         ),
 
         RevealedField(
+          key: _languagesKey,
           label: 'What languages do you speak?',
           child: _chips(
             AppData.commonLanguages,
@@ -114,6 +138,7 @@ class FieldDetailsStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _payKey,
           label: 'How much do you expect to be paid?',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,6 +181,7 @@ class FieldDetailsStep extends StatelessWidget {
         ),
 
         RevealedField(
+          key: _availabilityKey,
           label: 'When can you start?',
           child: _chips(
             AppData.availabilityOptions,
@@ -163,6 +189,7 @@ class FieldDetailsStep extends StatelessWidget {
             onTap: (a) {
               data.availability = data.availability == a ? '' : a;
               onChanged();
+              if (data.availability.isNotEmpty) revealNextQuestion(_payKey);
             },
             single: true,
           ),

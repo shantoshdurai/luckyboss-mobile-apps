@@ -719,7 +719,7 @@ class JobSeekerProvider extends ChangeNotifier {
     String roleTitle = '',
     List<String> certificates = const [],
     List<String> languages = const [],
-    String workPermitStatus = '',
+    List<String> workPermitStatuses = const [],
     String payPeriod = 'Per month',
     required bool isStudent,
     required String currentCity,
@@ -746,8 +746,8 @@ class JobSeekerProvider extends ChangeNotifier {
     if (roleTitle.isNotEmpty) _profile.roleTitle = roleTitle;
     if (certificates.isNotEmpty) _profile.certificates = List.of(certificates);
     if (languages.isNotEmpty) _profile.languages = List.of(languages);
-    if (workPermitStatus.isNotEmpty) {
-      _profile.workPermitStatus = workPermitStatus;
+    if (workPermitStatuses.isNotEmpty) {
+      _profile.workPermitStatuses = List.of(workPermitStatuses);
     }
     _profile.payPeriod = payPeriod;
     _profile.isStudent = isStudent;
@@ -907,16 +907,20 @@ class JobSeekerProvider extends ChangeNotifier {
       case 'certificates':
         _profile.certificates = List<String>.from(value as List);
       case 'permit':
-        _profile.workPermitStatus = value as String;
-        _profile.hasWorkPermit = switch (value) {
-          'Citizen' ||
-          'Permanent Resident' ||
-          'Have a valid work permit' ||
-          'Have an employment pass' =>
-            true,
-          'Need employer to sponsor a permit' => false,
-          _ => null,
+        // Accepts a list or a single value — the edit screen sends one, the
+        // onboarding step sends several.
+        const allowed = {
+          'Citizen',
+          'Permanent Resident',
+          'Have a valid work permit',
+          'Have an employment pass',
         };
+        final statuses = value is List
+            ? List<String>.from(value)
+            : [if ((value as String).isNotEmpty) value];
+        _profile.workPermitStatuses = statuses;
+        _profile.hasWorkPermit =
+            statuses.isEmpty ? null : statuses.any(allowed.contains);
       case 'availability':
         _profile.availability = value as String;
       case 'email':

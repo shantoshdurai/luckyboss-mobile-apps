@@ -112,6 +112,44 @@ class AuthService {
   static const String _profileCompleteKey = 'luckyboss_profile_complete';
   static const String _notificationPermKey = 'luckyboss_notification_granted';
 
+  /// Accounts created on this handset, so sign-in can tell a returning user
+  /// from a new one.
+  ///
+  /// On a standalone build there is no server to ask "does this account
+  /// exist?", and without an answer `login` accepted anything — which meant a
+  /// typo in an email silently created a second empty account rather than
+  /// saying the password was wrong. This is the local stand-in: a map of
+  /// email to password, replaced by the server's own check the moment
+  /// `POST /api/v1/auth/login` answers.
+  ///
+  /// Not a security boundary and not pretending to be one. It is a local
+  /// convenience on a device whose storage the owner already controls.
+  static const String _accountsKey = 'luckyboss_local_accounts_v1';
+
+  static Future<Map<String, String>> _localAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_accountsKey);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, v.toString()));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> _rememberAccount(String email, String password) async {
+    if (email.trim().isEmpty) return;
+    final accounts = await _localAccounts();
+    accounts[email.trim().toLowerCase()] = password;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accountsKey, jsonEncode(accounts));
+  }
+
+  /// Whether an account with this email exists on this device.
+  static Future<bool> accountExists(String email) async =>
+      (await _localAccounts()).containsKey(email.trim().toLowerCase());
+
   /// Keys written by the removed fake-auth service. Their presence means the
   /// device holds a token that no server ever issued, so the session is cleared
   /// rather than left in a half-authenticated state every API call would 401 on.
@@ -147,6 +185,25 @@ class AuthService {
     );
     if (result.success) return result;
     if (email.trim().isEmpty || password.isEmpty) return result;
+
+    // No server answered, so fall back to the accounts on this device — and
+    // fail when there is no match. Signing somebody in on an email they have
+    // never registered is how a typo becomes a second, empty account they
+    // cannot find their profile in.
+    final accounts = await _localAccounts();
+    final key = email.trim().toLowerCase();
+    final stored = accounts[key];
+
+    if (stored == null) {
+      return const AuthResult.fail(
+        'We could not find an account with that email. Create one to get '
+        'started.',
+      );
+    }
+    if (stored != password) {
+      return const AuthResult.fail('That password does not match.');
+    }
+
     return _persistLocal(AuthSession(
       token: _localToken(),
       name: email.split('@').first,
@@ -154,6 +211,11 @@ class AuthService {
       isLocal: true,
     ));
   }
+
+  /// True when [message] means "no such account", so the caller can offer to
+  /// create one rather than showing a dead end.
+  static bool isUnknownAccount(String? message) =>
+      message != null && message.startsWith('We could not find an account');
 
   /// Registers a new candidate via `POST /api/v1/auth/job-seekers/register`.
   static Future<AuthResult> register({
@@ -175,11 +237,18 @@ class AuthService {
       onInvalid: 'Check the details above and try again.',
     );
     if (result.success) return result;
+
+    // Remembered so the next sign-in recognises them. Without this the account
+    // just created would be reported as not existing.
+    await _rememberAccount(email, password);
+
     return _persistLocal(AuthSession(
       token: _localToken(),
       name: name.trim(),
       email: email.trim(),
-      phone: phone.trim(),
+      // Blank stays null rather than an empty string: the profile screen shows
+      // a number when one exists, and '' is not a number.
+      phone: phone.trim().isEmpty ? null : phone.trim(),
       isLocal: true,
     ));
   }

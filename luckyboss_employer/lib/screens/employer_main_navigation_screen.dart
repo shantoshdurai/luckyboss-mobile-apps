@@ -29,6 +29,8 @@ class _EmployerMainNavigationScreenState
   /// own above this one.
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
+
   void _openCandidates([String? jobId]) => setState(() {
     if (jobId != null) _candidateJobId = jobId;
     _currentIndex = 2;
@@ -51,11 +53,17 @@ class _EmployerMainNavigationScreenState
             EmployerDashboardTab(
               onOpenJobs: () => setState(() => _currentIndex = 1),
               onOpenCandidates: _openCandidates,
-              onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+              onMenu: _openDrawer,
             ),
-            ActiveJobsTab(onOpenCandidates: _openCandidates),
-            AtsCandidatesTab(initialJobId: _candidateJobId),
-            const CompanyProfileTab(),
+            ActiveJobsTab(
+              onOpenCandidates: _openCandidates,
+              onMenu: _openDrawer,
+            ),
+            AtsCandidatesTab(
+              initialJobId: _candidateJobId,
+              onMenu: _openDrawer,
+            ),
+            CompanyProfileTab(onMenu: _openDrawer),
           ],
         ),
       ),

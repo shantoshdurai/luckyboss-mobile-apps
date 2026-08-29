@@ -134,7 +134,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         .any((d) => d.kind == DocumentKind.companyRegistration);
   }
 
-  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+  void _dismissKeyboard() => dismissKeyboard(context);
 
   void _next() {
     if (!_canAdvance) return;
@@ -176,6 +176,10 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
       about: _about.text.trim(),
     ));
     provider.submitForVerification();
+    // Signed in as part of registering. Without this the company would be sent
+    // back to a login screen that has just been taught to reject unknown
+    // accounts — and its own would not be recognised until it signed in again.
+    provider.setAuthenticated(true);
     await provider.flush();
 
     if (!mounted) return;
@@ -224,7 +228,16 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
     );
   }
 
-  Widget _scroll(Widget child) => SingleChildScrollView(
+  /// One page of the wizard.
+  ///
+  /// The `FocusScope` is what stops a text field on a page the user has left
+  /// from reclaiming focus and pulling the keyboard back up — a PageView keeps
+  /// all its pages mounted, so without this they compete.
+  Widget _scroll(Widget child) => FocusScope(
+        child: _scrollBody(child),
+      );
+
+  Widget _scrollBody(Widget child) => SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: child,

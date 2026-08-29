@@ -23,8 +23,9 @@ import '../../providers/employer_provider.dart';
 class AtsCandidatesTab extends StatefulWidget {
   /// Opens straight onto a job when the recruiter arrived from the jobs list.
   final String? initialJobId;
+  final VoidCallback? onMenu;
 
-  const AtsCandidatesTab({super.key, this.initialJobId});
+  const AtsCandidatesTab({super.key, this.initialJobId, this.onMenu});
 
   @override
   State<AtsCandidatesTab> createState() => _AtsCandidatesTabState();
@@ -142,12 +143,24 @@ class _AtsCandidatesTabState extends State<AtsCandidatesTab>
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Candidates',
-          style: AppTheme.serifTitle(
-            fontSize: 23,
-            color: AppTheme.inkOf(context),
-          ),
+        Row(
+          children: [
+            if (widget.onMenu != null)
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 40),
+                onPressed: widget.onMenu,
+                tooltip: 'Menu',
+                icon: Icon(Icons.menu, color: AppTheme.inkOf(context)),
+              ),
+            Text(
+              'Candidates',
+              style: AppTheme.serifTitle(
+                fontSize: 23,
+                color: AppTheme.inkOf(context),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         // Which vacancy is being staffed, switchable in place. A recruiter

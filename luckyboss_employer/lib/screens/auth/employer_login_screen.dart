@@ -37,26 +37,42 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
     super.dispose();
   }
 
-  /// A readable company name from an email domain — 'ravi-builders.com' becomes
-  /// 'Ravi Builders'. A guess, and clearly editable, but better than showing a
-  /// recruiter a dashboard headed "Your company".
-  static String _companyFromEmail(String email) {
-    if (!email.contains('@')) return '';
-    final domain = email.split('@').last.split('.').first;
-    if (domain.isEmpty ||
-        const {
-          'gmail',
-          'yahoo',
-          'hotmail',
-          'outlook',
-        }.contains(domain.toLowerCase())) {
-      return '';
-    }
-    return domain
-        .split(RegExp(r'[-_]'))
-        .where((w) => w.isNotEmpty)
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
+  /// Offers registration when the email is not one we know.
+  Future<void> _offerToRegister(String email) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('No account for that email',
+            style: AppTheme.sansBold(fontSize: 16, color: AppTheme.ink)),
+        content: Text(
+          'We could not find a company registered to $email on this device. '
+          'Register your company and Lucky Boss will verify it before your '
+          'jobs go live.',
+          style: AppTheme.body(color: AppTheme.inkMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Try again',
+                style: AppTheme.body(color: AppTheme.inkMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Register company',
+                style: AppTheme.sansBold(
+                    fontSize: 14, color: AppTheme.signalSource)),
+          ),
+        ],
+      ),
+    );
+
+    if (go != true || !mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CompanyRegistrationScreen()),
+    );
   }
 
   Future<void> _submit() async {
@@ -65,28 +81,32 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
 
     setState(() => _submitting = true);
 
-    // No server yet, so this creates an on-device account — the same decision
-    // as the seeker app, and the same rule: the account is real and it is
-    // written down. A sign-in that reports success and stores nothing is what
-    // made the seeker app forget its user on every launch.
-    //
-    // TODO: try POST /api/v1/auth/login first once an employer login route
-    // exists, and fall back to this only when nothing answers.
     final provider = context.read<EmployerProvider>();
     await provider.hydrate();
     if (!mounted) return;
 
-    final email = _emailController.text.trim();
-    if (provider.company.email.isEmpty) {
-      provider.updateCompany(
-        provider.company.copyWith(
-          email: email,
-          // Seeds the company name from the email domain so the dashboard is not
-          // headed "Your company" on first run. Fully editable afterwards.
-          name: provider.company.name.isEmpty ? _companyFromEmail(email) : null,
-        ),
-      );
+    final email = _emailController.text.trim().toLowerCase();
+    final registered = provider.company.email.trim().toLowerCase();
+
+    // No account, or a different one — refuse and point at registration.
+    //
+    // This used to accept any address and silently invent a company from the
+    // email domain, so signing in as anything at all produced a working
+    // employer account. Shantosh wants sir to see the real shape of the
+    // product: you register a company, it gets checked, then you sign in. An
+    // app that lets a stranger straight in is not that product, and demoing it
+    // teaches the wrong thing about how the platform works.
+    if (registered.isEmpty || registered != email) {
+      setState(() => _submitting = false);
+      // Not an error to sit and stare at. This is the commonest thing that
+      // happens to a first-time employer, and the only useful response is to
+      // offer the thing they actually need.
+      await _offerToRegister(email);
+      return;
     }
+
+    // TODO: try POST /api/v1/auth/login first once an employer login route
+    // exists, and fall back to this device check only when nothing answers.
     provider.setAuthenticated(true);
     await provider.flush();
     if (!mounted) return;

@@ -283,7 +283,7 @@ void main() {
         skills: const ['Heavy Vehicle', 'Route Planning', 'Night Driving'],
         certificates: const ['Class 4 Licence'],
         languages: const ['Tamil'],
-        workPermitStatus: 'Citizen',
+        workPermitStatuses: const ['Citizen'],
         availability: 'Immediately',
         photoUrl: 'data:image/jpeg;base64,AAAA',
       );

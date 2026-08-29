@@ -129,7 +129,8 @@ class SeekerProfileModel {
   /// Work authorisation as a stated status. [hasWorkPermit] is kept alongside
   /// it for the matching engine, but a boolean cannot distinguish "needs
   /// sponsorship" from "not sure", and employers treat those very differently.
-  String workPermitStatus;
+  /// Work authorisation. A list, because the markets are a list.
+  List<String> workPermitStatuses;
 
   // ---------------------------------------------------------------------------
   // THE FEED QUESTIONS
@@ -199,7 +200,7 @@ class SeekerProfileModel {
     List<String>? languages,
     this.roleTitle = '',
     List<String>? certificates,
-    this.workPermitStatus = '',
+    List<String>? workPermitStatuses,
     this.payPeriod = 'Per month',
     this.openToRelocate,
     this.hasWorkPermit,
@@ -211,6 +212,7 @@ class SeekerProfileModel {
     this.isVerified = false,
   })  : preferredCategories = preferredCategories ?? [],
         preferredCountries = preferredCountries ?? [],
+        workPermitStatuses = workPermitStatuses ?? [],
         skills = skills ?? [],
         workModes = workModes ?? [],
         jobTypes = jobTypes ?? [],
@@ -257,6 +259,15 @@ class SeekerProfileModel {
   /// True when this profile is field work, and should be scored and displayed
   /// in those terms rather than as a CV.
   bool get isFieldWork => AppData.isFieldCategory(preferredCategory);
+
+  /// First answer, for callers that take one string.
+  String get workPermitStatus =>
+      workPermitStatuses.isEmpty ? '' : workPermitStatuses.first;
+
+  /// Replaces the whole list with one status, for the single-value callers.
+  set workPermitStatus(String value) {
+    workPermitStatuses = value.trim().isEmpty ? [] : [value];
+  }
 
   /// Dynamic profile strength, 0–100.
   ///
@@ -368,7 +379,7 @@ class SeekerProfileModel {
         'languages': languages,
         'roleTitle': roleTitle,
         'certificates': certificates,
-        'workPermitStatus': workPermitStatus,
+        'workPermitStatuses': workPermitStatuses,
         'payPeriod': payPeriod,
         'isVerified': isVerified,
       };
@@ -431,7 +442,13 @@ class SeekerProfileModel {
       languages: strings('languages'),
       roleTitle: text('roleTitle'),
       certificates: strings('certificates'),
-      workPermitStatus: text('workPermitStatus'),
+      // New key first, then the single-value key an older build wrote.
+      workPermitStatuses: strings('workPermitStatuses').isNotEmpty
+          ? strings('workPermitStatuses')
+          : [
+              if (text('workPermitStatus').isNotEmpty)
+                text('workPermitStatus'),
+            ],
       payPeriod: (j['payPeriod'] as String?) ?? 'Per month',
       isVerified: (j['isVerified'] as bool?) ?? false,
     );

@@ -108,7 +108,7 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
     super.dispose();
   }
 
-  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+  void _dismissKeyboard() => dismissKeyboard(context);
 
   void _next() {
     if (!_canAdvance) return;
@@ -308,7 +308,16 @@ controller: controller,
     );
   }
 
-  Widget _scroll(Widget child) => SingleChildScrollView(
+  /// One page of the wizard.
+  ///
+  /// The `FocusScope` is what stops a text field on a page the user has left
+  /// from reclaiming focus and pulling the keyboard back up — a PageView keeps
+  /// all its pages mounted, so without this they compete.
+  Widget _scroll(Widget child) => FocusScope(
+        child: _scrollBody(child),
+      );
+
+  Widget _scrollBody(Widget child) => SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: child,

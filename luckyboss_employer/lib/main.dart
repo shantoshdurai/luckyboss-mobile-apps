@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/keyboard_dismisser.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/employer_provider.dart';
 import 'screens/auth/employer_login_screen.dart';
@@ -23,6 +24,10 @@ class LuckyBossEmployerApp extends StatelessWidget {
       child: MaterialApp(
         title: 'LuckyBoss Employer',
         debugShowCheckedModeBanner: false,
+        // One observer instead of an unfocus call at every navigation point.
+        // See KeyboardDismisser — fixing this per screen is how it kept coming
+        // back.
+        navigatorObservers: [KeyboardDismisser()],
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light,

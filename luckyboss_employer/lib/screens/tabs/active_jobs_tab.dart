@@ -17,8 +17,9 @@ import '../jobs/post_job_wizard_screen.dart';
 /// is actually visible to anybody.
 class ActiveJobsTab extends StatelessWidget {
   final ValueChanged<String>? onOpenCandidates;
+  final VoidCallback? onMenu;
 
-  const ActiveJobsTab({super.key, this.onOpenCandidates});
+  const ActiveJobsTab({super.key, this.onOpenCandidates, this.onMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +45,22 @@ class ActiveJobsTab extends StatelessWidget {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
                 children: [
-                  Text('Your jobs',
-                      style: AppTheme.serifTitle(
-                          fontSize: 24, color: AppTheme.inkOf(context))),
+                  Row(
+                    children: [
+                      if (onMenu != null)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 40),
+                          onPressed: onMenu,
+                          tooltip: 'Menu',
+                          icon: Icon(Icons.menu,
+                              color: AppTheme.inkOf(context)),
+                        ),
+                      Text('Your jobs',
+                          style: AppTheme.serifTitle(
+                              fontSize: 24, color: AppTheme.inkOf(context))),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '${jobs.length} posted  ·  '

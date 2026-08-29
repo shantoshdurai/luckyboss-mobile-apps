@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/theme/app_theme.dart';
 
@@ -368,4 +369,20 @@ Future<void> revealNextQuestion(GlobalKey key) async {
     // on screen with it, which is the point of moving at all.
     alignment: 0.08,
   );
+}
+
+/// Puts the keyboard away, properly.
+///
+/// `FocusManager.instance.primaryFocus?.unfocus()` alone was not enough, and
+/// Shantosh reported the keyboard following him into the next step twice. A
+/// PageView keeps every page alive, so the field on the page being left is
+/// still mounted and takes focus straight back. Unfocusing the enclosing scope
+/// detaches the whole subtree, and the explicit platform call closes the
+/// keyboard even in the frame where Flutter believes nothing is focused —
+/// which is the case that leaves it stuck open on Android.
+void dismissKeyboard(BuildContext context) {
+  final scope = FocusScope.of(context);
+  if (scope.hasFocus) scope.unfocus();
+  FocusManager.instance.primaryFocus?.unfocus();
+  SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
 }

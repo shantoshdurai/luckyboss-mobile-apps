@@ -36,7 +36,23 @@ class VerificationPendingScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const LuckyBossBrandLogo(height: 30),
+              // Pushed from three places and had no way back from any of them.
+              // Shown only when there is something to pop — after registering,
+              // this screen *is* the stack, and a back arrow to nowhere is
+              // worse than none.
+              Row(
+                children: [
+                  if (Navigator.canPop(context))
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 40),
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.arrow_back,
+                          color: AppTheme.inkOf(context)),
+                    ),
+                  const LuckyBossBrandLogo(height: 30),
+                ],
+              ),
               const Spacer(),
 
               Container(

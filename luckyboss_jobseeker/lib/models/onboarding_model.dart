@@ -120,7 +120,16 @@ class OnboardingData {
   /// Work authorisation as a stated status rather than a yes/no. "Need employer
   /// to sponsor a permit" is a completely different proposition to an employer
   /// than "have a valid work permit", and a boolean cannot tell them apart.
-  String workPermitStatus = '';
+  /// Work authorisation, as a set.
+  ///
+  /// Multiple because the countries are multiple: an Indian citizen who also
+  /// holds a Singapore work permit is one person with two true answers, and
+  /// forcing one threw away the fact that decides whether they can be placed.
+  final Set<String> workPermitStatuses = {};
+
+  /// First answer, for the fields that still take one string.
+  String get workPermitStatus =>
+      workPermitStatuses.isEmpty ? '' : workPermitStatuses.first;
 
   /// Whether [expectedSalary] is a daily, monthly or yearly figure. A site
   /// worker quotes a day rate; showing them a monthly field invites either a

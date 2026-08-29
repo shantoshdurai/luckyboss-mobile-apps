@@ -8,6 +8,7 @@ import '../../providers/employer_provider.dart';
 import '../../services/document_service.dart';
 import '../auth/company_registration_screen.dart';
 import '../auth/verification_pending_screen.dart';
+import '../edit_company_screen.dart';
 import '../settings_screen.dart';
 
 /// The company as candidates and Lucky Boss see it.
@@ -21,7 +22,9 @@ import '../settings_screen.dart';
 /// company upload a candidate ever sees. Shantosh: *"they need to upload their
 /// company pictures in the profile."*
 class CompanyProfileTab extends StatelessWidget {
-  const CompanyProfileTab({super.key});
+  final VoidCallback? onMenu;
+
+  const CompanyProfileTab({super.key, this.onMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +39,27 @@ class CompanyProfileTab extends StatelessWidget {
           children: [
             Row(
               children: [
+                if (onMenu != null)
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40),
+                    onPressed: onMenu,
+                    tooltip: 'Menu',
+                    icon: Icon(Icons.menu, color: AppTheme.inkOf(context)),
+                  ),
                 Expanded(
                   child: Text('Company',
                       style: AppTheme.serifTitle(
                           fontSize: 24, color: AppTheme.inkOf(context))),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const EditCompanyScreen()),
+                  ),
+                  tooltip: 'Edit company',
+                  icon: Icon(Icons.edit_outlined, color: AppTheme.inkOf(context)),
                 ),
                 IconButton(
                   onPressed: () => Navigator.push(
@@ -193,6 +213,7 @@ class _IdentityCard extends StatelessWidget {
             .take(2)
             .map((w) => w[0].toUpperCase())
             .join();
+    final logoBytes = DocumentService.bytesFromDataUri(company.logoUrl);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -203,17 +224,34 @@ class _IdentityCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 54,
-            height: 54,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppTheme.inkOf(context),
-              borderRadius: BorderRadius.circular(16),
+          // The logo when there is one, initials until then. Tapping either
+          // opens the editor, so the empty square is an invitation rather than
+          // a dead end.
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EditCompanyScreen()),
             ),
-            child: Text(initials,
-                style: AppTheme.sansBold(
-                    fontSize: 19, color: AppTheme.onInkOf(context))),
+            child: Container(
+              width: 54,
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: logoBytes == null
+                    ? AppTheme.inkOf(context)
+                    : Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                image: logoBytes == null
+                    ? null
+                    : DecorationImage(
+                        image: MemoryImage(logoBytes), fit: BoxFit.cover),
+              ),
+              child: logoBytes != null
+                  ? null
+                  : Text(initials,
+                      style: AppTheme.sansBold(
+                          fontSize: 19, color: AppTheme.onInkOf(context))),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(

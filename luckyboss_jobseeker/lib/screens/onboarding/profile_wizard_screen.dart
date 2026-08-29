@@ -151,7 +151,7 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
       roleTitle: _data.roleTitle,
       certificates: _data.certificates.toList(),
       languages: _data.languages.toList(),
-      workPermitStatus: _data.workPermitStatus,
+      workPermitStatuses: _data.workPermitStatuses.toList(),
       payPeriod: _data.payPeriod,
       isStudent: _data.isStudent,
       currentCity: _data.currentCity,
@@ -435,9 +435,18 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
   /// `unfocus` rather than `FocusScope.of(context).unfocus()` on a primary
   /// focus that may not exist — calling it unconditionally on a step with no
   /// text field at all is a no-op, which is what we want.
-  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+  void _dismissKeyboard() => dismissKeyboard(context);
 
-  Widget _scroll(Widget child) => SingleChildScrollView(
+  /// One page of the wizard.
+  ///
+  /// The `FocusScope` is what stops a text field on a page the user has left
+  /// from reclaiming focus and pulling the keyboard back up — a PageView keeps
+  /// all its pages mounted, so without this they compete.
+  Widget _scroll(Widget child) => FocusScope(
+        child: _scrollBody(child),
+      );
+
+  Widget _scrollBody(Widget child) => SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
         // Dragging the page down puts the keyboard away, the behaviour every
         // native form has. Without it the only way to dismiss it is the system
