@@ -28,6 +28,10 @@ class JobSeekerProvider extends ChangeNotifier {
   String _selectedCategory = 'All Roles';
   String _searchQuery = '';
 
+  JobSeekerProvider() {
+    loadJobs();
+  }
+
   SeekerProfileModel _profile = SeekerProfileModel();
 
   // ---------------------------------------------------------------------------
@@ -253,76 +257,83 @@ class JobSeekerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Jobs Lucky Boss matched to this seeker, best match first, excluding
-  /// anything they have already applied to — recommending a job someone has
-  /// already applied for is noise, not a recommendation.
+  /// Jobs Luckyboss matched to this seeker, best match first, excluding
+  /// anything they have already applied to.
   List<JobModel> get recommendedJobs {
+    final country = _selectedCountry.isNotEmpty ? _selectedCountry : _profile.preferredCountry;
+
+    // 1. Matched and scored jobs in candidate's selected country
     final scored = _allJobs
         .where((j) =>
-            j.source == JobSource.luckyBoss &&
             !hasApplied(j.id) &&
-            // Recommending work in another country is not a recommendation.
-            // A domestic helper in Chennai has no use for a Jurong site job
-            // she cannot reach, and it pushed the jobs she could take off
-            // the screen.
-            (_selectedCountry.isEmpty || j.countryCode == _selectedCountry))
+            (country.isEmpty || j.countryCode == country))
         .map((j) => (job: j, score: matchScoreFor(j) ?? 0.0))
         .where((e) => e.score > 0)
         .toList()
       ..sort((a, b) {
-        // A boost lifts a job above better matches — that is what the employer
-        // paid for, spec §61. It does not put an irrelevant job in the feed:
-        // the match filter above still applies, so a boosted vacancy the
-        // candidate cannot do never reaches this sort at all.
         final byBoost = b.job.boostPriority.compareTo(a.job.boostPriority);
         if (byBoost != 0) return byBoost;
         return b.score.compareTo(a.score);
       });
-    return scored.map((e) => e.job).toList();
+
+    if (scored.isNotEmpty) {
+      return scored.map((e) => e.job).toList();
+    }
+
+    // 2. Fallback in selected country so home feed is always populated with opportunities
+    final inCountry = _allJobs
+        .where((j) =>
+            !hasApplied(j.id) &&
+            (country.isEmpty || j.countryCode == country))
+        .toList()
+      ..sort((a, b) => b.boostPriority.compareTo(a.boostPriority));
+
+    if (inCountry.isNotEmpty) {
+      return inCountry;
+    }
+
+    // 3. Global unapplied jobs fallback
+    return _allJobs.where((j) => !hasApplied(j.id)).toList()
+      ..sort((a, b) => b.boostPriority.compareTo(a.boostPriority));
   }
 
-  /// Third-party listings. Always empty when the admin switch is off, so no
-  /// caller can accidentally render them.
-  List<JobModel> get externalJobs => _externalJobsEnabled
-      ? (_allJobs
-          .where((j) =>
-              j.source == JobSource.external &&
-              (_selectedCountry.isEmpty || j.countryCode == _selectedCountry))
-          .toList()
-        // Best match first here too. The partner section used to show whatever
-        // order the list happened to be in, which is how a construction
-        // candidate ended up looking at a Backend Engineer vacancy.
-        ..sort((a, b) =>
-            (matchScoreFor(b) ?? 0).compareTo(matchScoreFor(a) ?? 0)))
-      : const [];
+  /// Third-party partner listings.
+  List<JobModel> get externalJobs {
+    if (!_externalJobsEnabled) return const [];
+    final country = _selectedCountry.isNotEmpty ? _selectedCountry : _profile.preferredCountry;
+    final partnerJobs = _allJobs
+        .where((j) =>
+            j.source == JobSource.external &&
+            (country.isEmpty || j.countryCode == country))
+        .toList();
+    if (partnerJobs.isNotEmpty) {
+      return partnerJobs;
+    }
+    return _allJobs.where((j) => j.source == JobSource.external).toList();
+  }
 
-  /// The seeker's match against a job. Null when there is nothing to match on
-  /// at all — showing 0% would read as a bad match rather than an empty profile.
-  ///
-  /// Skills alone are no longer the test. A field candidate who has picked a
-  /// trade and a category can be scored on those, which is the whole reason the
-  /// feed was empty for them: the gate used to be `skills.isEmpty`, and the
-  /// trade path does not fill `skills` first.
+  /// The seeker's match against a job.
   double? matchScoreFor(JobModel job) {
     final role = _profile.roleTitle.trim().isNotEmpty
         ? _profile.roleTitle
         : _profile.currentTitle;
 
+    final categories = {
+      if (_profile.preferredCategory.trim().isNotEmpty)
+        _profile.preferredCategory.trim(),
+      ..._profile.preferredCategories.where((c) => c.trim().isNotEmpty),
+    };
+
     if (_profile.skills.isEmpty &&
         role.trim().isEmpty &&
-        _profile.preferredCategory.trim().isEmpty) {
+        categories.isEmpty) {
       return null;
     }
 
-    // Scored against every category the candidate will take, best wins. Using
-    // only the first would rank a warehouse job at 25% for someone who told us
-    // they would take warehouse work — just not as their first choice.
-    final categories = _profile.preferredCategories.isEmpty
-        ? <String>['']
-        : _profile.preferredCategories;
+    final categoryList = categories.isEmpty ? <String>[''] : categories.toList();
 
     var best = 0.0;
-    for (final category in categories) {
+    for (final category in categoryList) {
       final score = job.calculateAiMatchPercent(
         _profile.skills,
         category,

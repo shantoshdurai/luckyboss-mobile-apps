@@ -70,10 +70,15 @@ class JobCatalogService {
   /// first launch.
   static Future<List<JobModel>> loadSeed() async {
     final cached = _seedCache;
-    if (cached != null) return cached;
+    if (cached != null && cached.isNotEmpty) return cached;
 
     try {
-      final raw = await rootBundle.loadString(_assetPath);
+      String raw;
+      try {
+        raw = await rootBundle.loadString(_assetPath);
+      } catch (_) {
+        raw = await rootBundle.loadString('assets/assets/data/seed_jobs.json');
+      }
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       final rows = (decoded['jobs'] as List<dynamic>?) ?? const [];
       final jobs = <JobModel>[];
@@ -81,7 +86,6 @@ class JobCatalogService {
         try {
           jobs.add(JobModel.fromCatalogJson(row as Map<String, dynamic>));
         } catch (e) {
-          // One bad row must not cost the candidate the other 167.
           debugPrint('[JobCatalogService] skipped a row: $e');
         }
       }

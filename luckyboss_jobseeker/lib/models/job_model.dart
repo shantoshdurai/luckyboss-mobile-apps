@@ -266,28 +266,32 @@ class JobModel {
     String candidateRole = '',
     List<String> certificates = const [],
   }) {
-    final sameCategory = preferredCategory == category;
-    final sameRole = candidateRole.trim().isNotEmpty &&
-        (candidateRole.trim().toLowerCase() == role.trim().toLowerCase() ||
-            candidateRole.trim().toLowerCase() == title.trim().toLowerCase());
+    final prefCat = preferredCategory?.trim().toLowerCase() ?? '';
+    final jobCat = category.trim().toLowerCase();
+    final sameCategory = prefCat.isNotEmpty &&
+        (prefCat == jobCat || prefCat.contains(jobCat) || jobCat.contains(prefCat));
 
-    // Nothing at all to go on. Returning 0 is honest here — it is what keeps a
-    // brand new profile out of the recommendation list rather than filling it
-    // with noise.
-    if (!sameCategory && !sameRole && candidateSkills.isEmpty) return 0.0;
+    final candRole = candidateRole.trim().toLowerCase();
+    final jRole = role.trim().toLowerCase();
+    final jTitle = title.trim().toLowerCase();
+    final sameRole = candRole.isNotEmpty &&
+        (candRole == jRole ||
+            candRole == jTitle ||
+            jRole.contains(candRole) ||
+            jTitle.contains(candRole) ||
+            candRole.contains(jRole));
 
     final skillPct = getTechnicalSkillsMatch(candidateSkills);
     final certPct = getCertificateMatch(certificates);
 
-    var score = 0.0;
-    score += sameRole ? 45.0 : 0.0;
-    score += sameCategory ? 25.0 : 0.0;
-    score += skillPct * 0.20;
-    score += certPct * 0.10;
+    if (!sameCategory && !sameRole && skillPct == 0) return 0.0;
 
-    // A licence the job insists on and the candidate does not hold is a hard
-    // ceiling, not a deduction. Showing it as a 70% match would send somebody
-    // to an interview they cannot pass.
+    var score = 0.0;
+    if (sameRole) score += 45.0;
+    if (sameCategory) score += 30.0;
+    if (skillPct > 0) score += skillPct * 0.20;
+    if (certPct > 0) score += certPct * 0.10;
+
     if (requiredCertificates.isNotEmpty && certPct == 0) {
       score = score.clamp(0.0, 55.0);
     }
