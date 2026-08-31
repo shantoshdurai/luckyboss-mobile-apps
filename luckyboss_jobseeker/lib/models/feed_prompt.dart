@@ -76,7 +76,15 @@ class FeedPrompts {
       id: expectedSalary,
       question: 'What monthly salary are you aiming for?',
       detail: 'Only used for matching. Employers never see this figure.',
-      kind: PromptKind.number,
+      kind: PromptKind.choice,
+      options: [
+        'Under ₹25,000',
+        '₹25,000 – ₹50,000',
+        '₹50,000 – ₹1,00,000',
+        'Above ₹1,00,000',
+        'S\$2,500 – S\$5,000',
+        'S\$5,000+',
+      ],
       completionGain: 8,
     ),
     FeedPrompt(
