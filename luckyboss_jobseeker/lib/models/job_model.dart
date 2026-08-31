@@ -287,15 +287,31 @@ class JobModel {
     if (!sameCategory && !sameRole && skillPct == 0) return 0.0;
 
     var score = 0.0;
-    if (sameRole) score += 45.0;
-    if (sameCategory) score += 30.0;
-    if (skillPct > 0) score += skillPct * 0.20;
-    if (certPct > 0) score += certPct * 0.10;
-
-    if (requiredCertificates.isNotEmpty && certPct == 0) {
-      score = score.clamp(0.0, 55.0);
+    // Perfect Role Match (e.g. Electrician applying for Electrician vacancy)
+    if (sameRole) {
+      score += 50.0;
+    }
+    // Category / Industry Match (e.g. Construction, IT, Logistics)
+    if (sameCategory) {
+      score += 25.0;
+    }
+    // Skills Match
+    if (skillPct > 0) {
+      score += (skillPct / 100.0) * 20.0;
+    } else if (sameRole && sameCategory) {
+      score += 15.0;
+    }
+    // Certificates / Licences
+    if (certPct > 0) {
+      score += (certPct / 100.0) * 10.0;
+    } else if (requiredCertificates.isEmpty) {
+      score += 5.0;
     }
 
-    return score.clamp(0.0, 100.0);
+    if (requiredCertificates.isNotEmpty && certPct == 0) {
+      score = score.clamp(0.0, 65.0);
+    }
+
+    return score.clamp(0.0, 98.0);
   }
 }

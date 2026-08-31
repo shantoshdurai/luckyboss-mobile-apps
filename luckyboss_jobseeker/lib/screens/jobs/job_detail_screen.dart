@@ -336,7 +336,7 @@ class _SourceLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = job.source == JobSource.external && job.sourceName != null
         ? job.sourceName!
-        : 'Posted on Lucky Boss';
+        : 'Posted on Luckyboss';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -443,7 +443,7 @@ class _PaymentSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'This fee is charged by the employer for this vacancy. It is not a Lucky Boss '
+                'This fee is charged by the employer for this vacancy. It is not a Luckyboss '
                 'subscription, and it does not guarantee an interview.',
                 style: AppTheme.small(),
               ),

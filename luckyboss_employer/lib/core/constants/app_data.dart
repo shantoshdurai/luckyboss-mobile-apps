@@ -1720,8 +1720,9 @@ class AppData {
     final cat = category.toLowerCase();
     if (cat.contains('construction')) {
       return const [
-        'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&auto=format&fit=crop&q=80',
       ];
     }
     if (cat.contains('software') || cat.contains('it')) {
@@ -1775,7 +1776,7 @@ class AppData {
     if (cat.contains('engineering')) {
       return const [
         'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80',
       ];
     }
     if (cat.contains('finance') || cat.contains('bank')) {
