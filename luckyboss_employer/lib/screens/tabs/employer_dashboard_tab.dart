@@ -213,27 +213,50 @@ class EmployerDashboardTab extends StatelessWidget {
             ),
 
             const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const PostJobWizardScreen()),
+            if (provider.canPost)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const PostJobWizardScreen()),
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: Icon(Icons.add,
+                      color: AppTheme.onPrimaryFillOf(context), size: 20),
+                  label: Text('Post a vacancy',
+                      style: AppTheme.sansBold(
+                          fontSize: 15,
+                          color: AppTheme.onPrimaryFillOf(context))),
                 ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const VerificationPendingScreen()),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.hourglass_top_rounded,
+                      color: AppTheme.signalAttention, size: 20),
+                  label: Text('Awaiting Verification — Check Status',
+                      style: AppTheme.sansBold(
+                          fontSize: 14.5,
+                          color: AppTheme.inkOf(context))),
                 ),
-                icon: Icon(Icons.add,
-                    color: AppTheme.onPrimaryFillOf(context), size: 20),
-                label: Text('Post a vacancy',
-                    style: AppTheme.sansBold(
-                        fontSize: 15,
-                        color: AppTheme.onPrimaryFillOf(context))),
               ),
-            ),
           ],
         ),
       ),

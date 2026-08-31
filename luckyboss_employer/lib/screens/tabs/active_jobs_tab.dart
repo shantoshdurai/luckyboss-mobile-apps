@@ -6,15 +6,10 @@ import '../../core/theme/app_theme.dart';
 import '../../models/employer_job.dart';
 import '../../providers/employer_provider.dart';
 import '../../widgets/boost_sheet.dart';
+import '../auth/verification_pending_screen.dart';
 import '../jobs/post_job_wizard_screen.dart';
 
 /// The company's vacancies.
-///
-/// A card per job rather than a row, for the reason Shantosh gave about the
-/// seeker app: a flat list reads as an archive, and these are live things a
-/// recruiter acts on. The card carries what an employer checks at a glance —
-/// how many candidates are waiting, what the job pays, and whether the posting
-/// is actually visible to anybody.
 class ActiveJobsTab extends StatelessWidget {
   final ValueChanged<String>? onOpenCandidates;
   final VoidCallback? onMenu;
@@ -25,23 +20,26 @@ class ActiveJobsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<EmployerProvider>();
     final jobs = provider.jobs;
+    final canPost = provider.canPost;
 
     return Scaffold(
       backgroundColor: AppTheme.paperOf(context),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PostJobWizardScreen()),
-        ),
-        backgroundColor: AppTheme.primaryFillOf(context),
-        icon: Icon(Icons.add, color: AppTheme.onPrimaryFillOf(context)),
-        label: Text('Post a job',
-            style: AppTheme.sansBold(
-                fontSize: 14, color: AppTheme.onPrimaryFillOf(context))),
-      ),
+      floatingActionButton: canPost
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PostJobWizardScreen()),
+              ),
+              backgroundColor: AppTheme.primaryFillOf(context),
+              icon: Icon(Icons.add, color: AppTheme.onPrimaryFillOf(context)),
+              label: Text('Post a job',
+                  style: AppTheme.sansBold(
+                      fontSize: 14, color: AppTheme.onPrimaryFillOf(context))),
+            )
+          : null,
       body: SafeArea(
         child: jobs.isEmpty
-            ? const _NoJobsYet()
+            ? _NoJobsYet(canPost: canPost)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
                 children: [
@@ -69,6 +67,43 @@ class ActiveJobsTab extends StatelessWidget {
                         fontSize: 13, color: AppTheme.inkMutedOf(context)),
                   ),
                   const SizedBox(height: 16),
+                  if (!canPost) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.signalAttentionWash,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppTheme.signalAttention.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.hourglass_top_rounded,
+                              size: 18, color: AppTheme.signalAttention),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Your company is awaiting verification. Job posting unlocks once approved.',
+                              style: AppTheme.sansMedium(
+                                  fontSize: 12.5, color: AppTheme.inkOf(context)),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const VerificationPendingScreen()),
+                            ),
+                            child: Text('Review',
+                                style: AppTheme.sansBold(
+                                    fontSize: 12.5, color: AppTheme.signalAttention)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   // Boosted first, exactly as candidates see them — an
                   // employer who has paid for the top slot should be able to
                   // see that it worked without leaving the app.
@@ -93,30 +128,87 @@ class ActiveJobsTab extends StatelessWidget {
 }
 
 class _NoJobsYet extends StatelessWidget {
-  const _NoJobsYet();
+  final bool canPost;
+  const _NoJobsYet({this.canPost = false});
 
   @override
   Widget build(BuildContext context) => Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.work_outline,
-                  size: 42, color: AppTheme.inkFaintOf(context)),
-              const SizedBox(height: 14),
-              Text('No jobs posted yet',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.serifTitle(
-                      fontSize: 20, color: AppTheme.inkOf(context))),
-              const SizedBox(height: 6),
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: canPost
+                      ? AppTheme.signalSourceWash
+                      : AppTheme.signalAttentionWash,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  canPost ? Icons.work_outline : Icons.hourglass_top_rounded,
+                  size: 32,
+                  color: canPost
+                      ? AppTheme.signalSource
+                      : AppTheme.signalAttention,
+                ),
+              ),
+              const SizedBox(height: 18),
               Text(
-                'Post one and matching candidates appear straight away — there '
-                'are already people in the Lucky Boss database for most trades.',
+                canPost ? 'No jobs posted yet' : 'Verification in progress',
+                textAlign: TextAlign.center,
+                style: AppTheme.serifTitle(
+                    fontSize: 20, color: AppTheme.inkOf(context)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                canPost
+                    ? 'Post your first vacancy to start receiving verified matching candidates.'
+                    : 'Your company registration is awaiting verification by Luckyboss. Job posting unlocks the moment your company is approved.',
                 textAlign: TextAlign.center,
                 style: AppTheme.sansRegular(
                     fontSize: 13.5, color: AppTheme.inkMutedOf(context)),
               ),
+              const SizedBox(height: 22),
+              if (!canPost)
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const VerificationPendingScreen()),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.signalAttention,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.verified_user_outlined, size: 18),
+                  label: Text('Check Verification Status',
+                      style: AppTheme.sansBold(fontSize: 13.5, color: Colors.white)),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const PostJobWizardScreen()),
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text('Post a vacancy',
+                      style: AppTheme.sansBold(fontSize: 13.5, color: AppTheme.onPrimaryFillOf(context))),
+                ),
             ],
           ),
         ),

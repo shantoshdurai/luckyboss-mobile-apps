@@ -8,6 +8,7 @@ import '../../providers/employer_provider.dart';
 import '../../widgets/city_field.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/searchable_chip_picker.dart';
+import '../auth/verification_pending_screen.dart';
 import '../employer_main_navigation_screen.dart';
 
 /// Posting a vacancy, rebuilt as the mirror of the candidate's onboarding.
@@ -316,6 +317,88 @@ controller: controller,
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<EmployerProvider>();
+    if (!provider.canPost) {
+      return Scaffold(
+        backgroundColor: AppTheme.paperOf(context),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppTheme.inkOf(context)),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text('Verification Required',
+              style: AppTheme.sansBold(
+                  fontSize: 16, color: AppTheme.inkOf(context))),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppTheme.signalAttentionWash,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.hourglass_top_rounded,
+                      size: 32, color: AppTheme.signalAttention),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Company Verification Required',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.serifTitle(
+                      fontSize: 22, color: AppTheme.inkOf(context)),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Your company is currently awaiting verification by Luckyboss. You cannot post or publish vacancies until your company is approved.',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.sansRegular(
+                      fontSize: 14, color: AppTheme.inkMutedOf(context)),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const VerificationPendingScreen()),
+                      );
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.signalAttention,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(Icons.verified_user_outlined, size: 18),
+                    label: Text('Open Verification Screen & Approve',
+                        style: AppTheme.sansBold(
+                            fontSize: 14, color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel & Go Back',
+                      style: AppTheme.sansMedium(
+                          fontSize: 14, color: AppTheme.inkMutedOf(context))),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.paperOf(context),
       appBar: AppBar(

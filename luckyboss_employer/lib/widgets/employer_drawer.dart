@@ -138,11 +138,30 @@ class EmployerDrawer extends StatelessWidget {
 
                   _item(context, Icons.add_circle_outline, 'Post a vacancy', () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const PostJobWizardScreen()),
-                    );
+                    if (provider.canPost) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const PostJobWizardScreen()),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const VerificationPendingScreen()),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Your company is awaiting verification. Approve the company to post vacancies.',
+                            style: AppTheme.sansMedium(
+                                fontSize: 13, color: AppTheme.onInkOf(context)),
+                          ),
+                          backgroundColor: AppTheme.signalAttention,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                   }),
                   _item(context, Icons.auto_awesome, 'Speak to Lucky AI', () {
                     Navigator.pop(context);

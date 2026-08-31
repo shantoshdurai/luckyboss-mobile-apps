@@ -107,20 +107,34 @@ class VerificationPendingScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
+                  color: company.isVerified
+                      ? AppTheme.signalPositiveWash
+                      : Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Theme.of(context).dividerColor),
+                  border: Border.all(
+                    color: company.isVerified
+                        ? AppTheme.signalPositive.withValues(alpha: 0.4)
+                        : Theme.of(context).dividerColor,
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.groups_outlined,
-                        size: 18, color: AppTheme.inkMutedOf(context)),
+                    Icon(
+                      company.isVerified
+                          ? Icons.verified
+                          : Icons.groups_outlined,
+                      size: 18,
+                      color: company.isVerified
+                          ? AppTheme.signalPositive
+                          : AppTheme.inkMutedOf(context),
+                    ),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Text(
-                        'You can look through candidates and draft a vacancy '
-                        'now. Publishing unlocks once you are verified.',
+                        company.isVerified
+                            ? 'Your company is verified and approved. You can now post vacancies, boost jobs, and contact candidates.'
+                            : 'You can look through candidates and explore the dashboard now. Job posting unlocks once you are approved.',
                         style: AppTheme.sansMedium(
                             fontSize: 13, color: AppTheme.inkOf(context)),
                       ),
@@ -140,11 +154,17 @@ class VerificationPendingScreen extends StatelessWidget {
                     (route) => false,
                   ),
                   style: FilledButton.styleFrom(
+                    backgroundColor: company.isVerified
+                        ? AppTheme.signalPositive
+                        : AppTheme.primaryFillOf(context),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: Text('Look around',
+                  child: Text(
+                      company.isVerified
+                          ? 'Start Posting Jobs'
+                          : 'Look around',
                       style: AppTheme.sansBold(
                           fontSize: 15,
                           color: AppTheme.onPrimaryFillOf(context))),
