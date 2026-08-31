@@ -90,7 +90,7 @@ class AppDrawer extends StatelessWidget {
                   ),
                   _item(context, Icons.help_outline, 'Help & support',
                       () => _comingSoon(context, 'Help & support')),
-                  _item(context, Icons.info_outline, 'About Lucky Boss',
+                  _item(context, Icons.info_outline, 'About Luckyboss',
                       () => _about(context)),
                 ],
               ),
@@ -398,7 +398,7 @@ class AppDrawer extends StatelessWidget {
     Navigator.pop(context);
     showAboutDialog(
       context: context,
-      applicationName: 'Lucky Boss',
+      applicationName: 'Luckyboss',
       applicationVersion: '1.0.0',
       applicationLegalese:
           'Growth partner in your hiring journey.\nSingapore · Malaysia · India',

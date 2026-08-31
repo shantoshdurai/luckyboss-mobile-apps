@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants/app_data.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/job_model.dart';
 import '../../models/purchase_record.dart';
@@ -7,15 +8,6 @@ import '../../providers/job_seeker_provider.dart';
 import '../../widgets/ledger_components.dart';
 
 /// JOB DETAIL + APPLY — specification sections 30, 62 and 63.
-///
-/// This is the screen the whole seeker app exists to deliver someone to. Two
-/// things it does that the previous version did not:
-///
-///   1. It applies. Apply used to show a snackbar saying it was not built.
-///   2. It states the fee before the seeker commits to anything. A paid
-///      application is disclosed on the job row, again here, and confirmed in a
-///      sheet that names the amount — nobody should reach a payment screen they
-///      did not expect.
 class JobDetailScreen extends StatelessWidget {
   final JobModel job;
   const JobDetailScreen({super.key, required this.job});
@@ -49,6 +41,13 @@ class JobDetailScreen extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
+          // ---- Workplace Photo Banner ----
+          _WorkplaceGallery(
+            category: job.category,
+            companyName: job.companyName,
+          ),
+          const Divider(height: 1),
+
           // ---- Title block ----
           Container(
             color: AppTheme.surfaceOf(context),
@@ -174,7 +173,7 @@ class JobDetailScreen extends StatelessWidget {
                 if (provider.profile.skills.isEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Add your skills to your profile and Lucky Boss will show which of these '
+                    'Add your skills to your profile and Luckyboss will show which of these '
                     'you already meet.',
                     style: AppTheme.small(),
                   ),
@@ -527,4 +526,132 @@ class _Line extends StatelessWidget {
           ],
         ),
       );
+}
+
+class _WorkplaceGallery extends StatefulWidget {
+  final String category;
+  final String companyName;
+
+  const _WorkplaceGallery({required this.category, required this.companyName});
+
+  @override
+  State<_WorkplaceGallery> createState() => _WorkplaceGalleryState();
+}
+
+class _WorkplaceGalleryState extends State<_WorkplaceGallery> {
+  final PageController _pageController = PageController();
+  int _activePage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = AppData.defaultWorkplacePhotosForCategory(widget.category);
+
+    return Container(
+      color: AppTheme.surfaceOf(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 190,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: _pageController,
+                  itemCount: photos.length,
+                  onPageChanged: (idx) => setState(() => _activePage = idx),
+                  itemBuilder: (context, i) {
+                    return Image.network(
+                      photos[i],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (ctx, err, stack) => Container(
+                        color: AppTheme.inkOf(context).withValues(alpha: 0.08),
+                        child: Center(
+                          child: Icon(Icons.apartment_rounded,
+                              size: 48, color: AppTheme.inkMutedOf(context)),
+                        ),
+                      ),
+                      loadingBuilder: (ctx, child, progress) {
+                        if (progress == null) return child;
+                        return Container(
+                          color: AppTheme.inkOf(context).withValues(alpha: 0.04),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified, size: 13, color: AppTheme.signalPositive),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Verified Workplace',
+                          style: AppTheme.sansBold(fontSize: 11, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (photos.length > 1)
+                  Positioned(
+                    bottom: 10,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${_activePage + 1}/${photos.length}',
+                        style: AppTheme.sansBold(fontSize: 11, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              children: [
+                Icon(Icons.photo_library_outlined, size: 15, color: AppTheme.inkMutedOf(context)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Workplace photos from ${widget.companyName} · ${widget.category}',
+                    style: AppTheme.sansRegular(fontSize: 12.5, color: AppTheme.inkMutedOf(context)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -98,9 +98,9 @@ class _LicencesSheetState extends State<LicencesSheet> {
                   Text(
                     role.isEmpty
                         ? 'Tick what you hold, then upload a photo of the card. '
-                            'Lucky Boss checks it before an employer sees it.'
+                            'Luckyboss checks it before an employer sees it.'
                         : 'What a $role usually needs. Tick what you hold, then '
-                            'upload a photo of the card — Lucky Boss checks it '
+                            'upload a photo of the card — Luckyboss checks it '
                             'before an employer sees it.',
                     style: AppTheme.sansRegular(
                         fontSize: 13.5, color: AppTheme.inkMutedOf(context)),
@@ -143,7 +143,7 @@ class _LicencesSheetState extends State<LicencesSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Your documents stay on this phone until Lucky Boss '
+                          'Your documents stay on this phone until Luckyboss '
                           'submits you for a job.',
                           style: AppTheme.sansRegular(
                               fontSize: 12.5,
@@ -261,7 +261,7 @@ class _LicencesSheetState extends State<LicencesSheet> {
     await provider.addDocument(document);
     if (!mounted) return;
 
-    _notify('$licence uploaded. Lucky Boss will verify it.',
+    _notify('$licence uploaded. Luckyboss will verify it.',
         AppTheme.signalPositive);
   }
 

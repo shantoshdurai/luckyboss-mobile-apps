@@ -208,6 +208,38 @@ class _FieldDetailsStepState extends State<FieldDetailsStep> {
             single: true,
           ),
         ),
+
+        RevealedField(
+          label: 'About You (Optional)',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                initialValue: data.bio,
+                maxLines: 3,
+                style: AppTheme.sansMedium(
+                    fontSize: 14, color: AppTheme.inkOf(context)),
+                decoration: InputDecoration(
+                  hintText: 'Brief summary of your experience, skills, or what you are looking for...',
+                  hintStyle: AppTheme.sansRegular(
+                      fontSize: 13, color: AppTheme.inkFaintOf(context)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                onChanged: (v) {
+                  data.bio = v.trim();
+                  onChanged();
+                },
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tell employers about your strengths or background in a few words.',
+                style: AppTheme.sansRegular(
+                    fontSize: 12, color: AppTheme.inkFaintOf(context)),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

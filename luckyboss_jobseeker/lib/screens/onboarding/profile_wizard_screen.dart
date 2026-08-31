@@ -173,6 +173,9 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
     if (_data.email.trim().isNotEmpty) {
       await provider.setProfileField('email', _data.email.trim());
     }
+    if (_data.bio.trim().isNotEmpty) {
+      await provider.setProfileField('bio', _data.bio.trim());
+    }
     await AuthService.updateIdentity(
       name: _data.name.trim().isEmpty ? null : _data.name.trim(),
       email: _data.email.trim().isEmpty ? null : _data.email.trim(),

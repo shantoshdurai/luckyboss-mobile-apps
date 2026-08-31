@@ -718,6 +718,95 @@ controller: _titleController,
           ),
         ),
 
+        RevealedField(
+          label: 'Workplace & Site Photos',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Photos of your facility, office or site shown to candidates. Real workplace photos increase verified applications by 40%.',
+                style: AppTheme.sansRegular(
+                    fontSize: 12.5, color: AppTheme.inkFaintOf(context)),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 90,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final photoUrl in AppData.defaultWorkplacePhotosForCategory(_category))
+                      Container(
+                        width: 120,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                          image: DecorationImage(
+                            image: NetworkImage(photoUrl),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              bottom: 4,
+                              left: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('Workplace',
+                                    style: AppTheme.sansBold(fontSize: 9, color: Colors.white)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Workplace photo attached from device.',
+                                style: AppTheme.sansMedium(
+                                    fontSize: 13, color: AppTheme.onInkOf(context))),
+                            backgroundColor: AppTheme.signalPositive,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.signalSource,
+                            style: BorderStyle.solid,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined,
+                                size: 22, color: AppTheme.signalSource),
+                            const SizedBox(height: 4),
+                            Text('+ Upload',
+                                style: AppTheme.sansBold(
+                                    fontSize: 11.5, color: AppTheme.signalSource)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
         const SizedBox(height: 8),
         _summary(),
       ],

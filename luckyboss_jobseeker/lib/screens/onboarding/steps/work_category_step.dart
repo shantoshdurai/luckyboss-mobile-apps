@@ -49,11 +49,9 @@ class WorkCategoryStep extends StatelessWidget {
           itemCount: categories.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            // Tall enough for a two-line label at large system font sizes. A
-            // clipped category name is worse than a shorter grid.
-            childAspectRatio: 1.28,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 2.35,
           ),
           itemBuilder: (context, i) {
             final category = categories[i];
@@ -107,49 +105,55 @@ class _CategoryTile extends StatelessWidget {
       label: category.name,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(13),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
           decoration: BoxDecoration(
             color: selected
                 ? accent.withValues(alpha: 0.08)
                 : Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: selected ? accent : Theme.of(context).dividerColor,
-              width: selected ? 1.6 : 1,
+              width: selected ? 1.5 : 1,
             ),
           ),
-          child: Opacity(
-            opacity: 1,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      category.icon,
-                      size: 26,
-                      color: selected ? accent : AppTheme.inkOf(context),
-                    ),
-                    const Spacer(),
-                    if (selected)
-                      Icon(Icons.check_circle, size: 19, color: accent),
-                  ],
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.12)
+                      : AppTheme.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const Spacer(),
-                Text(
+                alignment: Alignment.center,
+                child: Icon(
+                  category.icon,
+                  size: 19,
+                  color: selected ? accent : AppTheme.inkOf(context),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
                   category.name,
                   style: AppTheme.sansBold(
-                    fontSize: 13.5,
+                    fontSize: 12,
                     color: selected ? accent : AppTheme.inkOf(context),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.check_circle, size: 16, color: accent),
               ],
-            ),
+            ],
           ),
         ),
       ),

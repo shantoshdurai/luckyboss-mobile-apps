@@ -67,7 +67,7 @@ class ReviewerTools extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'In the real product only Lucky Boss can approve a company, after '
+            'In the real product only Luckyboss can approve a company, after '
             'someone has read the documents. This switch exists because there '
             'is no server yet.',
             style: AppTheme.sansRegular(

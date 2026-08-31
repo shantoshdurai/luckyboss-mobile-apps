@@ -27,7 +27,7 @@ class LaunchLoader extends StatefulWidget {
     'Skills beat job titles — employers search for what you can do.',
     'A resume on file gets you shortlisted faster than one you send later.',
     'Match scores are built from your skills, not your years.',
-    'Applications are free on Lucky Boss unless an employer says otherwise.',
+    'Applications are free on Luckyboss unless an employer says otherwise.',
     'Every partner listing shows you who published it.',
     'Your expected salary is used for matching. Employers never see it.',
     'Adding one more skill changes what we can recommend you.',

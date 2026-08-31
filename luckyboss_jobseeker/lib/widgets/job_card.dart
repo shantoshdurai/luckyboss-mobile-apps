@@ -121,7 +121,7 @@ class JobCard extends StatelessWidget {
                   if (job.source == JobSource.external && job.sourceName != null)
                     Flexible(child: _tag(context, job.sourceName!, muted: true))
                   else
-                    _tag(context, 'Lucky Boss', accent: true),
+                    _tag(context, 'Luckyboss', accent: true),
                   const Spacer(),
                   // The score is the app's own claim about this job, so it sits
                   // with the job's facts rather than in a separate column.

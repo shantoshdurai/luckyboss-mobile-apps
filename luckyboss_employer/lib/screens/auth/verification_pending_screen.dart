@@ -88,7 +88,7 @@ class VerificationPendingScreen extends StatelessWidget {
                     ? (company.reviewNote ??
                         'Something did not match. Our team will call you to '
                             'sort it out.')
-                    : 'Lucky Boss checks every employer before candidates see '
+                    : 'Luckyboss checks every employer before candidates see '
                         'their jobs. We will call ${company.phone.isEmpty ? 'you' : company.phone} '
                         'to finish — usually within one working day.',
                 style: AppTheme.sansRegular(
@@ -172,7 +172,7 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     const steps = [
       ('Documents received', CompanyStatus.submitted),
-      ('Checked by Lucky Boss', CompanyStatus.underReview),
+      ('Checked by Luckyboss', CompanyStatus.underReview),
       ('Verified — you can post', CompanyStatus.verified),
     ];
 

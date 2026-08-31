@@ -149,7 +149,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             const SizedBox(width: 7),
                             Text(
-                              'Lucky Boss Career Hub',
+                              'Luckyboss Career Hub',
                               style: AppTheme.sansBold(fontSize: 11.5, color: AppTheme.onInkOf(context)),
                             ),
                           ],

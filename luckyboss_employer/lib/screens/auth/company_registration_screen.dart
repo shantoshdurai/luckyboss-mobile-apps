@@ -55,18 +55,20 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
 
   String _type = '';
   String _country = 'SG';
+  String _selectedPlan = 'Free Demo Access';
   int _step = 0;
   bool _submitting = false;
 
-  static const int _totalSteps = 4;
+  static const int _totalSteps = 5;
   static const List<String> _labels = [
     'Your company',
     'Who to contact',
     'Proof',
+    'Choose plan',
     'Check & send',
   ];
 
-  /// The documents Lucky Boss checks. Business registration is the only hard
+  /// The documents Luckyboss checks. Business registration is the only hard
   /// requirement — a small contractor may hold nothing else, and refusing them
   /// at the door would cut out most of the market this agency serves.
   static const List<({DocumentKind kind, String label, String why, bool required})>
@@ -125,7 +127,8 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
             _email.text.trim().contains('@') &&
             _phone.text.trim().length >= 7,
         2 => _hasRequiredDocuments,
-        3 => true,
+        3 => _selectedPlan.isNotEmpty,
+        4 => true,
         _ => false,
       };
 
@@ -271,6 +274,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
                   _scroll(_companyStep()),
                   _scroll(_contactStep()),
                   _scroll(_proofStep()),
+                  _scroll(_planStep()),
                   _scroll(_reviewStep()),
                 ],
               ),
@@ -304,7 +308,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         children: [
           _title('Register your company'),
           _subtitle(
-              'Lucky Boss checks every employer before candidates see their '
+              'Luckyboss checks every employer before candidates see their '
               'jobs. This takes a few minutes.'),
           const SizedBox(height: 22),
           RevealedField(
@@ -416,7 +420,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
       children: [
         _title('Prove the company is real'),
         _subtitle(
-            'A photo of each document is fine. PDFs work too. Only Lucky Boss '
+            'A photo of each document is fine. PDFs work too. Only Luckyboss '
             'sees these — candidates never do.'),
         const SizedBox(height: 20),
         for (final doc in _requiredDocuments)
@@ -434,6 +438,91 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
   }
 
   // -------------------------------------------------------------- step four
+
+  Widget _planStep() {
+    final (starterPrice, proPrice, entPrice, currencySymbol) = switch (_country) {
+      'IN' => ('₹4,999', '₹14,999', '₹39,999', '₹'),
+      'MY' => ('RM 299', 'RM 899', 'RM 2,499', 'RM'),
+      _ => ('S\$99', 'S\$299', 'S\$799', 'S\$'),
+    };
+
+    final plans = [
+      (
+        id: 'Free Demo Access',
+        name: 'Free Demo Access',
+        price: 'Free Trial · $currencySymbol 0',
+        period: '30-day full trial',
+        desc: 'Instant full access to try creating jobs, reviewing matching candidates, and exploring the portal without payment.',
+        badge: 'Recommended Demo',
+        features: [
+          '5 Active Job Posts',
+          '50 Candidate Contact Credits',
+          'Smart ATS Matching & Filters',
+          'Instant Activation · No Card Required',
+        ],
+      ),
+      (
+        id: 'Starter',
+        name: 'Starter Package',
+        price: '$starterPrice / mo',
+        period: 'Monthly billing',
+        desc: 'Great for direct employers hiring for 1 to 5 specific positions.',
+        badge: null,
+        features: [
+          '5 Verified Job Posts',
+          '50 Candidate Contact Unlocks',
+          'Standard Employer Support',
+        ],
+      ),
+      (
+        id: 'Professional',
+        name: 'Professional Package',
+        price: '$proPrice / mo',
+        period: 'Monthly billing',
+        desc: 'Ideal for growing teams & agencies with continuous recruitment across Singapore, Malaysia & India.',
+        badge: 'Most Popular',
+        features: [
+          '25 Verified Job Posts',
+          '500 Candidate Contact Unlocks',
+          'AI Matching & Priority Score',
+          'Fast-Track Verification',
+        ],
+      ),
+      (
+        id: 'Enterprise',
+        name: 'Enterprise Package',
+        price: '$entPrice / mo',
+        period: 'Annual / Custom billing',
+        desc: 'Complete high-volume recruitment system for large contractors & staffing firms.',
+        badge: 'Full Suite',
+        features: [
+          'Unlimited Job Posts',
+          'Unlimited Candidate Unlocks',
+          'External Source & ATS Integration',
+          'Dedicated Account Manager',
+        ],
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _title('Choose your subscription'),
+        _subtitle(
+            'Select a plan to start hiring. You can change or upgrade your '
+            'plan anytime in Settings.'),
+        const SizedBox(height: 20),
+        for (final plan in plans)
+          _PlanCard(
+            plan: plan,
+            selected: _selectedPlan == plan.id,
+            onSelect: () => setState(() => _selectedPlan = plan.id),
+          ),
+      ],
+    );
+  }
+
+  // -------------------------------------------------------------- step five
 
   Widget _reviewStep() {
     final provider = context.watch<EmployerProvider>();
@@ -460,6 +549,11 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
             (_contactRole.text.trim(), 'Role'),
           (_email.text.trim(), 'Email'),
           (_phone.text.trim(), 'Phone'),
+        ]),
+        const SizedBox(height: 12),
+        _reviewCard('Plan & Subscription', [
+          (_selectedPlan, 'Selected plan'),
+          ('Active demo trial included', 'Status'),
         ]),
         const SizedBox(height: 12),
         _reviewCard(
@@ -850,6 +944,144 @@ class _DocumentRowState extends State<_DocumentRow> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  final ({
+    String id,
+    String name,
+    String price,
+    String period,
+    String desc,
+    String? badge,
+    List<String> features,
+  }) plan;
+  final bool selected;
+  final VoidCallback onSelect;
+
+  const _PlanCard({
+    required this.plan,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: selected
+            ? AppTheme.signalSource.withValues(alpha: 0.05)
+            : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? AppTheme.signalSource : Theme.of(context).dividerColor,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (plan.badge != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.signalSource,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              plan.badge!,
+                              style: AppTheme.sansBold(
+                                  fontSize: 10, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        Text(
+                          plan.name,
+                          style: AppTheme.sansBold(
+                              fontSize: 16, color: AppTheme.inkOf(context)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          plan.desc,
+                          style: AppTheme.sansRegular(
+                              fontSize: 12.5,
+                              color: AppTheme.inkMutedOf(context)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        plan.price,
+                        style: AppTheme.sansBold(
+                            fontSize: 16,
+                            color: selected
+                                ? AppTheme.signalSource
+                                : AppTheme.inkOf(context)),
+                      ),
+                      Text(
+                        plan.period,
+                        style: AppTheme.sansRegular(
+                            fontSize: 11,
+                            color: AppTheme.inkFaintOf(context)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Divider(
+                  height: 1,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.6)),
+              const SizedBox(height: 10),
+              for (final f in plan.features)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 15,
+                        color: selected
+                            ? AppTheme.signalSource
+                            : AppTheme.signalPositive,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          f,
+                          style: AppTheme.sansMedium(
+                              fontSize: 12.5,
+                              color: AppTheme.inkOf(context)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1714,4 +1714,79 @@ class AppData {
     if (r != null) return r.certificates;
     return cat.certificates;
   }
+
+  /// Curated workplace photos for each category when viewing job details.
+  static List<String> defaultWorkplacePhotosForCategory(String category) {
+    final cat = category.toLowerCase();
+    if (cat.contains('construction')) {
+      return const [
+        'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('software') || cat.contains('it')) {
+      return const [
+        'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('manufacturing') || cat.contains('factory')) {
+      return const [
+        'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('warehouse') || cat.contains('logistics')) {
+      return const [
+        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('health') || cat.contains('nurs') || cat.contains('medical')) {
+      return const [
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('hospitality') || cat.contains('f&b') || cat.contains('food') || cat.contains('restaurant')) {
+      return const [
+        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('driving') || cat.contains('delivery') || cat.contains('transport')) {
+      return const [
+        'https://images.unsplash.com/photo-1580674684081-7617fbf3d745?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('retail') || cat.contains('sales')) {
+      return const [
+        'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('security')) {
+      return const [
+        'https://images.unsplash.com/photo-1557597774-9d273605dfa9?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('engineering')) {
+      return const [
+        'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    if (cat.contains('finance') || cat.contains('bank')) {
+      return const [
+        'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&auto=format&fit=crop&q=80',
+      ];
+    }
+    return const [
+      'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800&auto=format&fit=crop&q=80',
+    ];
+  }
 }

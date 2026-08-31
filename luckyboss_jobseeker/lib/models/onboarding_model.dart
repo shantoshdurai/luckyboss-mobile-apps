@@ -72,6 +72,7 @@ class OnboardingData {
   String name = '';
   String email = '';
   String password = '';
+  String bio = '';
 
   bool get accountStepComplete => name.trim().isNotEmpty;
 
