@@ -15,20 +15,29 @@ class LuckyBossBrandLogo extends StatelessWidget {
       height: height,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        // Fallback when the asset is missing. Ledger sets the wordmark in the
-        // system's own type rather than a third face, and the gradient is the
-        // logo's actual ramp — this is one of the two places it is allowed.
-        return ShaderMask(
-          shaderCallback: (bounds) => AppTheme.brandRule.createShader(bounds),
-          child: Text(
-            'LuckyBOSS',
-            style: GoogleFonts.archivo(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: Colors.white,
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/icon.png',
+              height: height,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
-          ),
+            const SizedBox(width: 8),
+            ShaderMask(
+              shaderCallback: (bounds) => AppTheme.brandRule.createShader(bounds),
+              child: Text(
+                'Luckyboss',
+                style: GoogleFonts.archivo(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

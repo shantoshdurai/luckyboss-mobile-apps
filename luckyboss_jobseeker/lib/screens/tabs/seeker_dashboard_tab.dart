@@ -11,6 +11,7 @@ import '../../widgets/feed_prompt_card.dart';
 import '../../widgets/matching_loader.dart';
 import '../../widgets/category_flash_cards.dart';
 import '../../widgets/lucky_ai_copilot_modal.dart';
+import '../../widgets/lucky_boss_brand_logo.dart';
 import '../jobs/all_jobs_screen.dart';
 import '../notifications_screen.dart';
 
@@ -334,6 +335,9 @@ class _SearchEntry extends StatelessWidget {
             tooltip: 'Menu',
             onPressed: onMenu,
           ),
+          const SizedBox(width: 4),
+          const LuckyBossBrandLogo(height: 32),
+          const SizedBox(width: 10),
           Expanded(child: RollingSearchBar(onTap: onSearch)),
           _action(
             context,
