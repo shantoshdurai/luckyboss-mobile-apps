@@ -222,6 +222,13 @@ class JobDetailScreen extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Future<void> _apply(BuildContext context, JobSeekerProvider provider, bool paid) async {
+    if (provider.hasApplied(job.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You have already applied to this role.')),
+      );
+      return;
+    }
+
     if (paid) {
       final proceed = await showModalBottomSheet<bool>(
         context: context,
@@ -247,15 +254,25 @@ class JobDetailScreen extends StatelessWidget {
       return;
     }
 
+    // Application confirmation dialog before submission
+    final confirm = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _ApplicationConfirmationSheet(job: job),
+    );
+    if (confirm != true || !context.mounted) return;
+
     final ok = await provider.applyToJob(job);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok
-            ? 'Applied to ${job.title}. Track it under My applications.'
-            : 'You have already applied to this role.'),
-      ),
-    );
+    if (ok) {
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => _ApplicationSuccessSheet(job: job),
+      );
+    }
   }
 
   void _explain(BuildContext context, double score) {
@@ -522,10 +539,239 @@ class _Line extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(width: 92, child: MetaText(label, size: 10)),
-            Expanded(child: Text(value, style: AppTheme.body(color: AppTheme.ink))),
+            Expanded(child: Text(value, style: AppTheme.body(color: AppTheme.inkOf(context)))),
           ],
         ),
       );
+}
+
+class _ApplicationConfirmationSheet extends StatelessWidget {
+  final JobModel job;
+  const _ApplicationConfirmationSheet({required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<JobSeekerProvider>();
+    final profile = provider.profile;
+    final score = provider.matchScoreFor(job);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.ruleOf(context),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.signalPositiveWash,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.send_rounded,
+                      size: 20, color: AppTheme.signalPositive),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Confirm Application',
+                          style: AppTheme.sectionTitle(color: AppTheme.inkOf(context))),
+                      const SizedBox(height: 2),
+                      Text('Applying to ${job.companyName}',
+                          style: AppTheme.small(color: AppTheme.inkMutedOf(context)),
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Target Job Summary Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.paperOf(context),
+                borderRadius: BorderRadius.circular(AppTheme.radiusRow),
+                border: Border.all(color: AppTheme.ruleOf(context), width: AppTheme.hairline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(job.title,
+                      style: AppTheme.sansBold(fontSize: 15, color: AppTheme.inkOf(context))),
+                  const SizedBox(height: 4),
+                  Text('${job.location} · ${job.salaryDisplay}',
+                      style: AppTheme.sansRegular(fontSize: 13, color: AppTheme.inkMutedOf(context))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Profile Verification Details
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.paperOf(context),
+                borderRadius: BorderRadius.circular(AppTheme.radiusRow),
+                border: Border.all(color: AppTheme.ruleOf(context), width: AppTheme.hairline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const MetaText('Your profile details to be shared', size: 9),
+                  const SizedBox(height: 10),
+                  _Line('Applicant', profile.name.isNotEmpty ? profile.name : 'Job Seeker'),
+                  if (profile.phone.isNotEmpty)
+                    _Line('Phone', profile.phone),
+                  if (profile.email.isNotEmpty)
+                    _Line('Email', profile.email),
+                  if (score != null)
+                    _Line('Match Score', '${score.toStringAsFixed(0)}% (${MatchTierStyle.of(score).label})', last: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.shield_outlined, size: 16, color: AppTheme.signalPositive),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Your verified credentials will be transmitted securely to the employer.',
+                    style: AppTheme.small(color: AppTheme.inkMutedOf(context)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryFillOf(context),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(
+                'Confirm & Submit Application',
+                style: AppTheme.sansBold(fontSize: 14, color: AppTheme.onPrimaryFillOf(context)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicationSuccessSheet extends StatelessWidget {
+  final JobModel job;
+  const _ApplicationSuccessSheet({required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.ruleOf(context),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: AppTheme.signalPositiveWash,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_rounded,
+                  size: 32, color: AppTheme.signalPositive),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Application Submitted! 🎉',
+              style: AppTheme.serifTitle(fontSize: 20, color: AppTheme.inkOf(context)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your application for ${job.title} at ${job.companyName} has been received and added to your tracker.',
+              textAlign: TextAlign.center,
+              style: AppTheme.sansRegular(fontSize: 13.5, color: AppTheme.inkMutedOf(context)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.paperOf(context),
+                borderRadius: BorderRadius.circular(AppTheme.radiusRow),
+                border: Border.all(color: AppTheme.ruleOf(context), width: AppTheme.hairline),
+              ),
+              child: Column(
+                children: [
+                  const _Line('Status', 'Under Review'),
+                  const _Line('Submitted', 'Today, Just now'),
+                  _Line('Company', job.companyName, last: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.signalPositive,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Done', style: AppTheme.sansBold(fontSize: 14, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _WorkplaceGallery extends StatefulWidget {

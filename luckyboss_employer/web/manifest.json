@@ -1,11 +1,11 @@
 {
-    "name": "luckybossemployer",
-    "short_name": "luckybossemployer",
+    "name": "LuckyBoss Employer",
+    "short_name": "LuckyBoss Employer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Lucky Boss — jobs across construction, manufacturing, warehouse, care and more.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

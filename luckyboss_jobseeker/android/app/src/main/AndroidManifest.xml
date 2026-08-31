@@ -20,7 +20,7 @@
          so this must not become an installation filter on Play. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
-        android:label="LuckyBoss"
+        android:label="Luckyboss"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

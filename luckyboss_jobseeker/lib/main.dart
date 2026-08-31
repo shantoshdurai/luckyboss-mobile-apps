@@ -43,7 +43,7 @@ class LuckyBossJobSeekerApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(
-        title: 'Lucky Boss',
+        title: 'Luckyboss',
         debugShowCheckedModeBanner: false,
         // One observer instead of an unfocus call at every navigation point.
         // See KeyboardDismisser — fixing this per screen is how it kept coming
