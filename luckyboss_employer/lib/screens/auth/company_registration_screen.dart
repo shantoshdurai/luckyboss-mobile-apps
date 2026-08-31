@@ -441,8 +441,8 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
 
   Widget _planStep() {
     final (starterPrice, proPrice, entPrice, currencySymbol) = switch (_country) {
-      'IN' => ('₹4,999', '₹14,999', '₹39,999', '₹'),
-      'MY' => ('RM 299', 'RM 899', 'RM 2,499', 'RM'),
+      'IN' => ('₹6,000', '₹18,000', '₹48,000', '₹'),
+      'MY' => ('RM 330', 'RM 999', 'RM 2,699', 'RM'),
       _ => ('S\$99', 'S\$299', 'S\$799', 'S\$'),
     };
 
@@ -451,7 +451,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         id: 'Free Demo Access',
         name: 'Free Demo Access',
         price: 'Free Trial · $currencySymbol 0',
-        period: '30-day full trial',
+        period: '30-day promotional trial',
         desc: 'Instant full access to try creating jobs, reviewing matching candidates, and exploring the portal without payment.',
         badge: 'Recommended Demo',
         features: [
@@ -470,7 +470,8 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         badge: null,
         features: [
           '5 Verified Job Posts',
-          '50 Candidate Contact Unlocks',
+          '20 Candidate Contact Unlocks',
+          'Direct Applicant Contact Access',
           'Standard Employer Support',
         ],
       ),
@@ -483,7 +484,8 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         badge: 'Most Popular',
         features: [
           '25 Verified Job Posts',
-          '500 Candidate Contact Unlocks',
+          '250 Candidate Contact Unlocks',
+          '100 External Candidate Records / mo',
           'AI Matching & Priority Score',
           'Fast-Track Verification',
         ],
@@ -497,8 +499,8 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         badge: 'Full Suite',
         features: [
           'Unlimited Job Posts',
-          'Unlimited Candidate Unlocks',
-          'External Source & ATS Integration',
+          'Unlimited Candidate Contact Unlocks',
+          'Unlimited External Candidate Feeds',
           'Dedicated Account Manager',
         ],
       ),
