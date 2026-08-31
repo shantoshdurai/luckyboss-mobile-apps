@@ -32,7 +32,7 @@ import '../notifications_screen.dart';
 /// Same Ledger system as the employer app — same ink, same paper, same stage
 /// colours, same serif reserved for people. An employer and a candidate looking
 /// at their phones should recognise the same product.
-class SeekerDashboardTab extends StatelessWidget {
+class SeekerDashboardTab extends StatefulWidget {
   /// Opens the left drawer. Owned by the shell, which holds the Scaffold key.
   final VoidCallback onMenu;
 
@@ -50,39 +50,45 @@ class SeekerDashboardTab extends StatelessWidget {
     required this.onProfile,
   });
 
-  /// The feed is not a flat list of jobs.
-  ///
-  /// Every fourth slot is something other than a job card — a preference
-  /// question, or a category strip that scrolls sideways. Both exist to break
-  /// the texture: an unbroken column of identical cards stops registering as
-  /// separate items no matter how well each one is designed.
+  @override
+  State<SeekerDashboardTab> createState() => _SeekerDashboardTabState();
+}
+
+class _SeekerDashboardTabState extends State<SeekerDashboardTab> {
   static const int _jobsPerBreak = 3;
+  bool _promptHandledInSession = false;
 
   /// What sits in a break slot.
   ///
-  /// Slot 1 is the category strip; every other slot is the next unanswered
-  /// question. Deriving the prompt index from the slot directly (rather than
-  /// from parity) is what stops two adjacent slots resolving to the same
-  /// question — a feed that asks the same thing twice looks broken.
+  /// Exactly ONE unasked question is recommended per session at slot 0.
+  /// Slot 1 is the category strip. No endless survey chaining.
   Widget? _breakItem(JobSeekerProvider provider, int breakIndex) {
     const categorySlot = 1;
+    const questionSlot = 0;
 
     if (breakIndex == categorySlot) {
-      return CategoryFlashCards(onPick: (_) => onSearch());
+      return CategoryFlashCards(onPick: (_) => widget.onSearch());
     }
 
-    final pending = provider.pendingPrompts;
-    final promptIndex = breakIndex > categorySlot ? breakIndex - 1 : breakIndex;
+    if (breakIndex == questionSlot && !_promptHandledInSession) {
+      final pending = provider.pendingPrompts;
+      if (pending.isEmpty) return null;
+      final currentPrompt = pending.first;
 
-    // Keyed by the question. The feed rebuilds on every provider notification,
-    // and without a key Flutter matches this State by position — so answering
-    // or dismissing one question could hand its half-typed answer to the next.
-    return promptIndex < pending.length
-        ? FeedPromptCard(
-            key: ValueKey(pending[promptIndex].id),
-            prompt: pending[promptIndex],
-          )
-        : null;
+      return FeedPromptCard(
+        key: ValueKey(currentPrompt.id),
+        prompt: currentPrompt,
+        onAnswered: () {
+          if (mounted) {
+            setState(() {
+              _promptHandledInSession = true;
+            });
+          }
+        },
+      );
+    }
+
+    return null;
   }
 
   /// Flat feed length: jobs plus however many break slots actually have content.
@@ -96,18 +102,12 @@ class SeekerDashboardTab extends StatelessWidget {
   }
 
   /// Maps a flat index onto either a job or a break item.
-  ///
-  /// Walks the sequence rather than computing it, because break slots can be
-  /// empty (no questions left) and an arithmetic mapping would leave gaps.
   Widget _feedItemAt(JobSeekerProvider provider, int index) {
     final jobs = provider.recommendedJobs;
     var cursor = 0;
     var jobIndex = 0;
     var breakIndex = 0;
 
-    // Marks the jobIndex whose break slot has already been consumed. Without
-    // it the loop re-enters the same slot forever, because emitting a break
-    // does not advance jobIndex and the modulo test stays true.
     var breakDoneFor = -1;
 
     while (cursor <= index) {
@@ -124,7 +124,6 @@ class SeekerDashboardTab extends StatelessWidget {
           cursor++;
           continue;
         }
-        // Empty break slot: fall through and emit the next job instead.
       }
 
       if (jobIndex >= jobs.length) return const SizedBox.shrink();
@@ -157,7 +156,10 @@ class SeekerDashboardTab extends StatelessWidget {
             SliverPersistentHeader(
               pinned: true,
               delegate: _PinnedSearchHeader(
-                child: _SearchEntry(onSearch: onSearch, onMenu: onMenu),
+                child: _SearchEntry(
+                  onSearch: widget.onSearch,
+                  onMenu: widget.onMenu,
+                ),
               ),
             ),
             const SliverToBoxAdapter(child: BrandRule()),
@@ -299,7 +301,7 @@ class SeekerDashboardTab extends StatelessWidget {
                 message: "That's everything for now. "
                     'New vacancies are matched as employers post them.',
                 actionLabel: 'Search all jobs',
-                onAction: onSearch,
+                onAction: widget.onSearch,
               ),
             ),
           ],

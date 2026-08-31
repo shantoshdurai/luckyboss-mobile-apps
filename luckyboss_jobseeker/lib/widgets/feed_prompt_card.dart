@@ -16,8 +16,9 @@ import '../providers/job_seeker_provider.dart';
 /// has to go away permanently, or the feed becomes a nag.
 class FeedPromptCard extends StatefulWidget {
   final FeedPrompt prompt;
+  final VoidCallback? onAnswered;
 
-  const FeedPromptCard({super.key, required this.prompt});
+  const FeedPromptCard({super.key, required this.prompt, this.onAnswered});
 
   @override
   State<FeedPromptCard> createState() => _FeedPromptCardState();
@@ -42,6 +43,7 @@ class _FeedPromptCardState extends State<FeedPromptCard> {
     // context throws "Looking up a deactivated widget's ancestor is unsafe".
     final provider = context.read<JobSeekerProvider>();
     final messenger = ScaffoldMessenger.of(context);
+    widget.onAnswered?.call();
 
     provider.answerPrompt(widget.prompt.id, value);
     messenger.showSnackBar(
@@ -87,8 +89,10 @@ class _FeedPromptCardState extends State<FeedPromptCard> {
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 icon: Icon(Icons.close, size: 16, color: AppTheme.inkFaintOf(context)),
                 tooltip: 'Not now',
-                onPressed: () =>
-                    context.read<JobSeekerProvider>().dismissPrompt(p.id),
+                onPressed: () {
+                  widget.onAnswered?.call();
+                  context.read<JobSeekerProvider>().dismissPrompt(p.id);
+                },
               ),
             ],
           ),
