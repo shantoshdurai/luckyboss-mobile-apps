@@ -339,12 +339,7 @@ class _SearchEntry extends StatelessWidget {
           const LuckyBossBrandLogo(height: 32),
           const SizedBox(width: 10),
           Expanded(child: RollingSearchBar(onTap: onSearch)),
-          _action(
-            context,
-            icon: Icons.auto_awesome,
-            tooltip: 'Ask Lucky AI',
-            onTap: () => LuckyAiCopilotModal.show(context),
-          ),
+          const SizedBox(width: 4),
           _action(
             context,
             icon: Icons.notifications_none,

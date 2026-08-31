@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/lucky_ai_copilot_modal.dart';
 import 'jobs/job_search_screen.dart';
 import 'tabs/seeker_dashboard_tab.dart';
 import 'tabs/my_applications_tab.dart';
@@ -52,9 +53,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: FocusTraversalGroup(
         child: IndexedStack(index: _currentIndex, children: _tabs),
       ),
-      // The 'Ask Lucky AI' FAB was a second entry point to the same assistant
-      // already reachable from the header icon, and it sat on top of the job
-      // cards it was covering. One route in is enough.
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: () => LuckyAiCopilotModal.show(context),
+              backgroundColor: AppTheme.primaryFillOf(context),
+              foregroundColor: AppTheme.onPrimaryFillOf(context),
+              elevation: 4,
+              shape: const CircleBorder(),
+              tooltip: 'Ask Lucky AI',
+              child: const Icon(Icons.auto_awesome, size: 24, color: Color(0xFFFFD700)),
+            )
+          : null,
 
       // Excluded from focus entirely. The tabs are reached by tapping them,
       // never by tabbing or by an Enter key escaping a form above.
