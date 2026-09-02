@@ -308,8 +308,21 @@ class JobModel {
       score += 5.0;
     }
 
+    // A mandatory licence the candidate does not hold caps the score well
+    // below the "Moderate" band, which `MatchTierStyle.of` starts at 65.
+    //
+    // The cap used to be exactly 65.0, which put a candidate who legally cannot
+    // do the job on the wrong side of that boundary by a single point: a
+    // forklift driver with no ticket scored a perfect role, category and skill
+    // match, got clamped to 65, and was shown as a **Moderate** match on a
+    // vacancy that would refuse him at the gate. This is not an edge case for
+    // this product — forklift tickets, driving classes and safety cards are the
+    // normal requirement across the trades the app serves.
+    //
+    // 55 sits clearly inside "Low" with room to spare, rather than resting on
+    // the boundary where any future re-banding would silently break it again.
     if (requiredCertificates.isNotEmpty && certPct == 0) {
-      score = score.clamp(0.0, 65.0);
+      score = score.clamp(0.0, 55.0);
     }
 
     return score.clamp(0.0, 98.0);
