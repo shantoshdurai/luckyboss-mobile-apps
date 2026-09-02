@@ -307,7 +307,7 @@ class _CandidateList extends StatelessWidget {
                 'Nobody has applied to this job yet. Recommended candidates are '
                     'on the next tab.',
               CandidateSource.recommended =>
-                'No one in the Lucky Boss database matches this job closely '
+                'No one in the Luckyboss database matches this job closely '
                     'enough yet.',
               CandidateSource.external =>
                 'No partner-sourced candidates for this job.',

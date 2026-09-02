@@ -8,6 +8,7 @@ import 'package:luckyboss_jobseeker/models/onboarding_model.dart';
 import 'package:luckyboss_jobseeker/models/seeker_profile_model.dart';
 import 'package:luckyboss_jobseeker/providers/job_seeker_provider.dart';
 import 'package:luckyboss_jobseeker/services/auth_service.dart';
+import 'package:luckyboss_jobseeker/services/firebase_identity_service.dart';
 import 'package:luckyboss_jobseeker/services/job_catalog_service.dart';
 import 'package:luckyboss_jobseeker/services/local_store.dart';
 
@@ -57,18 +58,29 @@ void main() {
       expect(await AuthService.isLoggedIn(), isTrue);
     });
 
-    test('a verified phone sign-in is persisted', () async {
+    test('a verified sign-in is persisted when no server answers', () async {
+      // With no Laravel reachable the on-device account is created, because the
+      // standalone APK must work with nothing behind it. Firebase has already
+      // proven who this is; only the relay to Laravel failed.
       final result = await AuthService.exchangeFirebaseToken(
         'test-token',
         phone: '+919944995493',
       );
 
       expect(result.success, isTrue);
+      expect(result.session?.isLocal, isTrue);
       expect((await AuthService.currentSession())?.phone, '+919944995493');
     });
 
-    test('reaching the OTP screen does not sign anyone in', () async {
-      await AuthService.sendPhoneOtp(fullPhoneNumber: '+6591234567');
+    test('requesting a code without Firebase fails instead of pretending',
+        () async {
+      // Firebase is not initialised in a test binding, which is exactly the
+      // shape of a build with no valid google-services.json. The old service
+      // answered "code sent" here and then accepted any four digits.
+      await expectLater(
+        AuthService.sendPhoneOtp(fullPhoneNumber: '+6591234567'),
+        throwsA(isA<FirebaseIdentityException>()),
+      );
 
       expect(await AuthService.currentSession(), isNull,
           reason: 'a session must only exist after the code is verified');

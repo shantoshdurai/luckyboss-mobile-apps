@@ -227,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'By continuing you agree to the Lucky Boss Terms of Service and Privacy Policy.',
+                'By continuing you agree to the Luckyboss Terms of Service and Privacy Policy.',
                 textAlign: TextAlign.center,
                 style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.inkFaintOf(context)),
               ),

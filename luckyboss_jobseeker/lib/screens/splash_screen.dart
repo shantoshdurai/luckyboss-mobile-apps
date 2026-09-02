@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../widgets/launch_loader.dart';
 import '../providers/job_seeker_provider.dart';
 import '../services/auth_service.dart';
+import '../services/profile_sync_service.dart';
 import 'main_navigation_screen.dart';
 import 'onboarding_screen.dart';
 import 'onboarding/profile_wizard_screen.dart';
@@ -29,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final provider = Provider.of<JobSeekerProvider>(context, listen: false);
     final session = await AuthService.currentSession();
-    final isProfileDone = await AuthService.isProfileComplete();
+    final isProfileDone = await ProfileSyncService.isCompleteOnServer();
 
     if (!mounted) return;
 
@@ -51,7 +52,15 @@ class _SplashScreenState extends State<SplashScreen> {
     // Never the other way round: what the candidate last typed on this handset
     // is newer than whatever was last pushed.
     if (session != null) {
-      await provider.hydrateProfile();
+      // Guarded on purpose. Everything below this point is what actually gets
+      // the candidate off the splash screen, and a single bad field in a
+      // server payload must never be able to strand them there. A failed
+      // hydrate means "we did not learn anything new", not "stop".
+      try {
+        await provider.hydrateProfile();
+      } catch (e) {
+        debugPrint('[Splash] profile hydrate failed, continuing: $e');
+      }
       if (!mounted) return;
     }
 

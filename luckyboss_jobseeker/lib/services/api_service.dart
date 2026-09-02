@@ -28,7 +28,7 @@ class ApiService {
             return JobModel(
               id: 'job-${j['id']}',
               title: j['title'] ?? 'Open Role',
-              companyName: j['company'] ?? 'Lucky Boss Enterprise',
+              companyName: j['company'] ?? 'Luckyboss Enterprise',
               countryCode: j['country'] ?? 'SG',
               location: j['location'] ?? 'Singapore',
               workMode: j['work_mode'] ?? 'On-site',
@@ -36,7 +36,7 @@ class ApiService {
               maxSalary: salary != null ? '${salary['max'] ?? '5,000'}' : '5,000',
               currency: salary != null ? (salary['currency'] ?? 'SGD') : 'SGD',
               category: 'IT & Software',
-              description: 'Position verified and published via Lucky Boss Corporate Recruitment Portal.',
+              description: 'Position verified and published via Luckyboss Corporate Recruitment Portal.',
               requiredSkills: ['Problem Solving', 'Communication', 'Industry Experience'],
               postedDate: DateTime.now(),
             );

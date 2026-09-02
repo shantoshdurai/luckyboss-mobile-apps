@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth, User;
+
 import '../core/config/api_config.dart';
+import 'firebase_identity_service.dart';
 
 /// Outcome of any authentication attempt.
 ///
@@ -15,13 +18,36 @@ class AuthResult {
   final String? message;
   final AuthSession? session;
 
-  const AuthResult._({required this.success, this.message, this.session});
+  /// Whether a Lucky Boss server actually answered, as opposed to the request
+  /// never arriving. **Only meaningful when [success] is false** — on success
+  /// the caller already knows which path produced the session from
+  /// [AuthSession.isLocal].
+  ///
+  /// The distinction matters for exactly one caller. On a network failure the
+  /// app is entitled to fall back to an on-device account, because the
+  /// standalone APK must work with nothing behind it. On a *rejection* it is
+  /// not: if Laravel verified a Firebase token against Google's certificates
+  /// and refused it, creating a local account instead would hand out a session
+  /// the server just declined — which is the fake-auth pattern this project
+  /// already shipped once.
+  final bool serverAnswered;
+
+  const AuthResult._({
+    required this.success,
+    this.message,
+    this.session,
+    this.serverAnswered = false,
+  });
 
   const AuthResult.ok(AuthSession session)
       : this._(success: true, session: session);
 
-  const AuthResult.fail(String message)
-      : this._(success: false, message: message);
+  const AuthResult.fail(String message, {bool serverAnswered = false})
+      : this._(
+          success: false,
+          message: message,
+          serverAnswered: serverAnswered,
+        );
 }
 
 /// A signed-in user. [token] is a Laravel Sanctum personal access token.
@@ -103,8 +129,12 @@ class AuthSession {
 /// success but wrote nothing, so the account evaporated on the next launch.
 /// A local token is never sent to a server; see [authHeaders].
 ///
-/// Phone OTP is deliberately NOT implemented as a local shortcut. See
-/// [sendPhoneOtp] for why, and for what has to be true before it can work.
+/// Phone OTP is handled by [FirebaseIdentityService], which only ever obtains
+/// a Firebase ID token. There is no Google/social sign-in: spec section 29
+/// defines registration as Name, Phone, Email and Password, and sir confirmed
+/// on 2026-09-01 that Firebase is for phone OTP only. That token becomes a session
+/// solely through [exchangeFirebaseToken], where Laravel verifies its signature
+/// server-side. There is no local shortcut past that check.
 class AuthService {
   AuthService._();
 
@@ -288,58 +318,109 @@ class AuthService {
   // PHONE OTP
   // ---------------------------------------------------------------------------
 
-  /// Whether real phone OTP can run in this build.
-  static const bool phoneOtpAvailable =
-      bool.fromEnvironment('FIREBASE_OTP_ENABLED');
+  /// Whether Firebase phone OTP is usable in this build.
+  ///
+  /// No longer a `--dart-define`. Firebase either initialised at launch or it
+  /// did not, and the sign-in screen should reflect what is actually true on
+  /// this device rather than what a build flag claimed.
+  static bool get firebaseAvailable => FirebaseIdentityService.isAvailable;
 
   /// Requests an SMS code for [fullPhoneNumber] (E.164, e.g. +6591234567).
-  static Future<AuthResult> sendPhoneOtp({
+  ///
+  /// Returns the Firebase verification id, which [verifySmsCode] needs. There
+  /// is no offline path: a code nobody sent cannot be checked, and the previous
+  /// version's "accept whatever the candidate types" is precisely the fake auth
+  /// that had to be torn out of this app. When Firebase is unavailable the
+  /// caller is told to use email and password.
+  static Future<String> sendPhoneOtp({
     required String fullPhoneNumber,
-  }) async {
-    if (phoneOtpAvailable) {
-      try {
-        final res = await _post(
-          '${ApiConfig.v1}/auth/otp/send',
-          {'phone': fullPhoneNumber},
-          onInvalid: 'SMS service unavailable.',
-        );
-        if (res.success) return res;
-      } catch (_) {}
-    }
-    // Standalone preview: there is no SMS to send, so the code screen accepts
-    // what the candidate types. Nothing is persisted here — a session is only
-    // created once [exchangeFirebaseToken] runs, otherwise merely reaching the
-    // OTP screen would sign somebody in.
-    return AuthResult.ok(AuthSession(
-      token: 'pending-otp-token',
-      name: '',
-      email: '',
-      phone: fullPhoneNumber,
-    ));
+    void Function(String idToken)? onAutoVerified,
+  }) {
+    return FirebaseIdentityService.sendSmsCode(
+      e164Phone: fullPhoneNumber,
+      onAutoVerified: onAutoVerified,
+    );
   }
 
-  /// Exchanges a verified OTP code or Firebase token for a session.
-  static Future<AuthResult> exchangeFirebaseToken(String idToken, {String? phone}) async {
-    if (phoneOtpAvailable) {
-      try {
-        final res = await _post(
-          '${ApiConfig.v1}/auth/firebase',
-          {'id_token': idToken},
-          onInvalid: 'That verification could not be confirmed. Please try again.',
-        );
-        if (res.success) return res;
-      } catch (_) {}
+  /// Confirms the SMS code, then exchanges the resulting Firebase token for a
+  /// Lucky Boss session.
+  static Future<AuthResult> verifySmsCode({
+    required String verificationId,
+    required String smsCode,
+    String? phone,
+  }) async {
+    try {
+      final idToken = await FirebaseIdentityService.confirmSmsCode(
+        verificationId: verificationId,
+        smsCode: smsCode,
+      );
+      return exchangeFirebaseToken(idToken, phone: phone);
+    } on FirebaseIdentityException catch (e) {
+      return AuthResult.fail(e.message, serverAnswered: true);
     }
+  }
 
-    // Offline verification: the account lives on this handset. It must be
-    // written to storage here — this is the moment the candidate becomes signed
-    // in, and skipping it is what used to throw them back to the sign-in screen
-    // on the next launch and break the profile photo.
+  /// Exchanges a **verified Firebase ID token** for a Lucky Boss session via
+  /// `POST /api/v1/auth/firebase`.
+  ///
+  /// Laravel checks the token's signature against Google's public certificates,
+  /// its audience against our project id, and its expiry, then finds or creates
+  /// the MySQL user and returns a Sanctum token. MySQL stays the system of
+  /// record; Firebase only proved who this is.
+  ///
+  /// The failure handling here is the part worth reading. There are two
+  /// different failures and they must not be treated alike:
+  ///
+  /// - **The server answered and refused** (401/403/422). The identity was
+  ///   checked and rejected, or the account belongs to the other app. Falling
+  ///   back to an on-device account here would hand out a session the server
+  ///   just declined. So this fails, and says so.
+  /// - **The server never answered.** The standalone APK must work with no
+  ///   Laravel behind it, and Firebase has already proven this person owns the
+  ///   phone number. An on-device account is created, marked `isLocal`, and its
+  ///   token is never sent anywhere.
+  static Future<AuthResult> exchangeFirebaseToken(
+    String idToken, {
+    String? phone,
+    String? name,
+    String? countryCode,
+  }) async {
+    final result = await _post(
+      '${ApiConfig.v1}/auth/firebase',
+      {
+        'id_token': idToken,
+        'app': 'seeker',
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (countryCode != null) 'country_code': countryCode.toUpperCase(),
+      },
+      onInvalid: 'That sign-in could not be confirmed. Please try again.',
+    );
+
+    if (result.success) return result;
+
+    // The server had its say. Respect it.
+    if (result.serverAnswered) return result;
+
+    // No server. Fall back to the on-device account, carrying whatever
+    // Firebase told us about the person so their profile is not blank.
+    //
+    // Guarded: FirebaseAuth.instance throws outright when Firebase never
+    // initialised, and this method is also reachable with a token obtained
+    // some other way. A missing display name must not turn a working offline
+    // sign-in into a crash.
+    User? user;
+    if (FirebaseIdentityService.isAvailable) {
+      try {
+        user = FirebaseAuth.instance.currentUser;
+      } catch (e) {
+        debugPrint('[AuthService] no Firebase user available: $e');
+      }
+    }
     return _persistLocal(AuthSession(
       token: _localToken(),
-      name: '',
-      email: '',
-      phone: phone,
+      name: (name ?? user?.displayName ?? '').trim(),
+      email: user?.email ?? '',
+      phone: phone ?? user?.phoneNumber,
       isLocal: true,
     ));
   }
@@ -381,20 +462,36 @@ class AuthService {
       // useful than a generic failure: "The email has already been taken"
       // tells the user what to do next.
       if (res.statusCode == 422) {
-        return AuthResult.fail(_firstValidationError(res.body) ?? onInvalid);
+        return AuthResult.fail(
+          _firstValidationError(res.body) ?? onInvalid,
+          serverAnswered: true,
+        );
       }
       if (res.statusCode == 429) {
         return const AuthResult.fail(
           'Too many attempts. Please wait a minute and try again.',
+          serverAnswered: true,
         );
       }
+      // 401 and 403 from /auth/firebase are a verified refusal, not an outage.
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        return AuthResult.fail(
+          _firstValidationError(res.body) ?? onInvalid,
+          serverAnswered: true,
+        );
+      }
+      // Deliberately NOT flagged as a verified refusal. A 500 from a crashed
+      // app, or a 502 from a proxy in front of it, means Laravel never reached
+      // a decision about this identity — treating that as "rejected" would
+      // strand a candidate whose only fault is that our server is down, when
+      // the standalone on-device account would have served them fine.
       return AuthResult.fail('Sign-in failed (${res.statusCode}).');
     } catch (e) {
       debugPrint('[AuthService] $url -> $e');
       return AuthResult.fail(
         ApiConfig.isLocal
-            ? 'Cannot reach the Lucky Boss server at ${ApiConfig.baseUrl}. Is the Laravel server running?'
-            : 'Cannot reach the Lucky Boss server. Check your connection.',
+            ? 'Cannot reach the Luckyboss server at ${ApiConfig.baseUrl}. Is the Laravel server running?'
+            : 'Cannot reach the Luckyboss server. Check your connection.',
       );
     }
   }
@@ -510,6 +607,11 @@ class AuthService {
   }
 
   static Future<void> logout() async {
+    // Firebase holds its own session. Clearing only the Lucky Boss one leaves
+    // the previous Google account signed in, so the next "Continue with Google"
+    // silently reuses it without ever showing the account chooser — on a shared
+    // handset that signs the new person in as the old one.
+    await FirebaseIdentityService.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
     await prefs.remove(_profileCompleteKey);

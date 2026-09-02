@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY.
+
+  Android 9 (API 28) and later block cleartext HTTP by default, and this app
+  targets 35+. Without this file every call to a local `php artisan serve`
+  fails with "CLEARTEXT communication not permitted" — and because AuthService
+  treats an unreachable server as grounds for an on-device account, the app
+  would look like it had signed in fine while never touching Laravel at all.
+  That failure is silent and easy to misread as "the backend is not connected".
+
+  This lives in src/debug/ on purpose. The release manifest never sees it, so a
+  production APK still refuses plain HTTP and must use HTTPS.
+
+  Only development hosts are listed. There is no blanket
+  cleartextTrafficPermitted="true", so a debug build still cannot be pointed at
+  an arbitrary insecure host on the internet.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Reached over USB via: adb reverse tcp:8000 tcp:8000 -->
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <!-- The host machine as seen from an Android emulator. -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- This development machine on the LAN, for a phone on the same
+             network when adb reverse is not in use. -->
+        <domain includeSubdomains="false">10.196.0.155</domain>
+    </domain-config>
+</network-security-config>

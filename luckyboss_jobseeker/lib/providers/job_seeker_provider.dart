@@ -881,6 +881,40 @@ class JobSeekerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reloads everything this candidate owns, straight after a sign-in.
+  ///
+  /// THE BUG THIS FIXES. `signOut()` wipes the in-memory and on-device profile
+  /// — correctly, so the next person to sign in on the same handset does not
+  /// inherit it. But nothing on the sign-in path put it back: `hydrateProfile`
+  /// was only ever called from the splash screen. So signing out and back in
+  /// left the app holding an empty profile while the server still had every
+  /// skill, language and job title — the home tab said "Nothing to recommend
+  /// yet" and the profile score fell back to a beginner's percentage. It only
+  /// reappeared after fully restarting the app, which made it look random.
+  ///
+  /// Jobs are loaded too: recommendations are matched against the catalogue,
+  /// so skills without jobs produce an empty feed just as surely.
+  Future<void> hydrateAfterSignIn() async {
+    try {
+      await hydrateProfile();
+    } catch (e) {
+      // Never fatal. A bad field in the payload must not block sign-in.
+      debugPrint('[Provider] post-sign-in hydrate failed: $e');
+    }
+
+    if (_allJobs.isEmpty) {
+      try {
+        await loadJobs();
+      } catch (e) {
+        debugPrint('[Provider] post-sign-in job load failed: $e');
+      }
+    }
+
+    _isProfileComplete = _profile.skills.isNotEmpty;
+    if (_isProfileComplete) await AuthService.markProfileComplete();
+    notifyListeners();
+  }
+
   /// Writes one profile field and syncs it to the server.
   ///
   /// One entry point rather than a setter per field, so the editor sheet and

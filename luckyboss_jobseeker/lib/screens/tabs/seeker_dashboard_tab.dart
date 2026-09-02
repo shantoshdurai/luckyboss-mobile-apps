@@ -228,7 +228,7 @@ class _SeekerDashboardTabState extends State<SeekerDashboardTab> {
                   child: const LedgerEmptyState(
                     headline: 'Nothing to recommend yet',
                     explanation:
-                        'Lucky Boss matches you against live vacancies using your skills. '
+                        'Luckyboss matches you against live vacancies using your skills. '
                         'Add a few and recommendations start appearing immediately.',
                   ),
                 ),

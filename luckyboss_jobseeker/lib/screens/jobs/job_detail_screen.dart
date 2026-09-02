@@ -319,8 +319,8 @@ class JobDetailScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'It was published by ${job.sourceName ?? 'an authorised partner'} rather than '
-                'by an employer on Lucky Boss, so the application happens on their site and '
-                'Lucky Boss cannot track its progress for you.',
+                'by an employer on Luckyboss, so the application happens on their site and '
+                'Luckyboss cannot track its progress for you.',
                 style: AppTheme.body(),
               ),
               const SizedBox(height: 18),

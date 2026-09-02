@@ -38,6 +38,42 @@ class ProfileSyncService {
     }
   }
 
+  /// Whether the server already holds a usable profile for this candidate.
+  ///
+  /// THE BUG THIS FIXES. `AuthService.logout()` clears the on-device
+  /// `profile_complete` flag — correctly, because a different person signing in
+  /// on the same handset must not inherit the previous one's state. But the
+  /// sign-in screens then read that same wiped flag to decide where to land,
+  /// so **every returning candidate was sent back through onboarding** and
+  /// asked for their name again, even though the server had their full profile
+  /// the whole time. It looked like the account had not been saved.
+  ///
+  /// Asking the server is the only honest answer to "have they done this
+  /// already?", because the server is the system of record.
+  ///
+  /// Falls back to the device flag when nothing answers: on a standalone build
+  /// there is no server to ask, and sending an offline candidate through
+  /// onboarding they already finished is the very complaint this fixes.
+  static Future<bool> isCompleteOnServer() async {
+    if (await AuthService.isLocalAccount()) {
+      return AuthService.isProfileComplete();
+    }
+
+    final remote = await fetch();
+    if (remote == null) return AuthService.isProfileComplete();
+
+    // Same rule the provider uses after hydrating (`skills.isNotEmpty`), so the
+    // two cannot disagree about what "complete" means and bounce the candidate
+    // between the wizard and the dashboard.
+    final skills = remote['skills'];
+    final complete = skills is List && skills.isNotEmpty;
+
+    // Cached so the next launch does not need a round trip before routing.
+    if (complete) await AuthService.markProfileComplete();
+
+    return complete;
+  }
+
   /// PUT the whole profile.
   ///
   /// Sends every field rather than a delta: the server treats missing keys as
@@ -101,9 +137,45 @@ class ProfileSyncService {
   /// set. Local values win where both exist, so an edit made offline is not
   /// clobbered by a stale fetch.
   static void applyTo(SeekerProfileModel p, Map<String, dynamic> d) {
-    String str(String k) => (d[k] as String?)?.trim() ?? '';
-    List<String> list(String k) =>
-        ((d[k] as List<dynamic>?) ?? const []).whereType<String>().toList();
+    // JSON is not all strings, and casting as though it were crashed the app.
+    //
+    // `expected_salary` is a decimal column and `passing_year` an integer, so
+    // both arrive as JSON *numbers*. The old `d[k] as String?` threw
+    // "type 'int' is not a subtype of type 'String?'" inside hydrateProfile,
+    // which runs on the splash screen — the exception killed _checkNavigation
+    // before it reached any Navigator call, so the app sat on the loading
+    // screen forever. A returning candidate simply could not get in.
+    String str(String k) {
+      final v = d[k];
+      if (v == null) return '';
+      if (v is String) return v.trim();
+      if (v is num) {
+        // 50000.0 should read as "50000" in a salary field, not "50000.0".
+        return v == v.roundToDouble() && v.abs() < 1e15
+            ? v.toInt().toString()
+            : v.toString();
+      }
+      if (v is bool) return v.toString();
+      return '';
+    }
+
+    // Tolerant for the same reason. A list of skill objects rather than plain
+    // strings used to come back empty from whereType<String>(), which made a
+    // complete profile look empty and sent the candidate back through the
+    // onboarding wizard.
+    List<String> list(String k) {
+      final raw = d[k];
+      if (raw is! List) return const [];
+      return raw
+          .map((e) {
+            if (e is String) return e.trim();
+            if (e is num || e is bool) return e.toString();
+            if (e is Map) return (e['name'] ?? e['title'] ?? '').toString().trim();
+            return '';
+          })
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
 
     if (p.name.isEmpty) p.name = str('name');
     if (p.email.isEmpty) p.email = str('email');

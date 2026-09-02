@@ -6,9 +6,19 @@ import 'core/theme/app_theme.dart';
 import 'providers/job_seeker_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/firebase_identity_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Awaited rather than fired and forgotten: the sign-in screen asks whether
+  // Google and phone sign-in are available, and a race there would show the
+  // buttons disabled on a build where they work perfectly.
+  //
+  // This never throws. A missing or wrong Firebase config leaves
+  // FirebaseIdentityService.isAvailable false and the app falls back to email
+  // and password, which is the whole point of initialising it here rather than
+  // lazily at the first tap.
+  await FirebaseIdentityService.initialise();
   runApp(const LuckyBossJobSeekerApp());
 }
 

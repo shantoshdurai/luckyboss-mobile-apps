@@ -26,7 +26,7 @@ class RollingSearchBar extends StatefulWidget {
       "Search for 'Warehouse Supervisor'",
       "Search for 'jobs in Singapore'",
       "Search for 'Staff Nurse'",
-      "Search for 'Lucky Boss Global Tech'",
+      "Search for 'Luckyboss Global Tech'",
       "Search for 'Accounts Executive'",
     ],
   });

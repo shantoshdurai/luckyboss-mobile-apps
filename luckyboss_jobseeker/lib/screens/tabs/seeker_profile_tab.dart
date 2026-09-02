@@ -329,7 +329,7 @@ controller: customSkillCtrl,
                   children: [
                     _buildLegalSection('1. Candidate Data Encryption', 'All contact information, resume files, and verification records are encrypted with 256-bit AES encryption on ISO-certified cloud infrastructure.'),
                     _buildLegalSection('2. Recruiter Visibility', 'Your verified profile is only visible to certified employers whose vacancies match your skills. Contact numbers are masked until an interview is accepted.'),
-                    _buildLegalSection('3. Cross-Border Compliance', 'Lucky Boss adheres to PDPA (Singapore), PDPA (Malaysia), and Digital Personal Data Protection Act (India).'),
+                    _buildLegalSection('3. Cross-Border Compliance', 'Luckyboss adheres to PDPA (Singapore), PDPA (Malaysia), and Digital Personal Data Protection Act (India).'),
                   ],
                 ),
               ),

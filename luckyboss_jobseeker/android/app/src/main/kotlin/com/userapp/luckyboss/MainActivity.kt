@@ -1,4 +1,4 @@
-package com.userapp.luckyboss_jobseeker
+package com.userapp.luckyboss
 
 import io.flutter.embedding.android.FlutterActivity
 

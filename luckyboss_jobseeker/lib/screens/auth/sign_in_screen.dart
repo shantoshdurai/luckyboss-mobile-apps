@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/firebase_identity_service.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
 import '../../widgets/phone_number_field.dart';
 import 'email_sign_in_screen.dart';
@@ -51,19 +52,28 @@ class _SignInScreenState extends State<SignInScreen> {
       _error = null;
     });
 
-    final result = await AuthService.sendPhoneOtp(fullPhoneNumber: _e164);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!result.success) {
-      setState(() => _error = result.message);
+    final String verificationId;
+    try {
+      verificationId = await AuthService.sendPhoneOtp(fullPhoneNumber: _e164);
+    } on FirebaseIdentityException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.message;
+      });
       return;
     }
+
+    if (!mounted) return;
+    setState(() => _busy = false);
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => OtpVerificationScreen(phoneNumber: _e164),
+        builder: (_) => OtpVerificationScreen(
+          phoneNumber: _e164,
+          verificationId: verificationId,
+        ),
       ),
     );
   }
@@ -239,7 +249,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
           child: RichText(
             text: TextSpan(
-              text: 'New to Lucky Boss? ',
+              text: 'New to Luckyboss? ',
               style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.inkMutedOf(context)),
               children: [
                 TextSpan(

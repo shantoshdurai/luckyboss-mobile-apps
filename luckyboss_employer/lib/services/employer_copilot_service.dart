@@ -113,7 +113,7 @@ class EmployerCopilotService {
 
       if (matches.isEmpty) {
         return CopilotReply(
-          'No $role in the Lucky Boss database'
+          'No $role in the Luckyboss database'
           '${country == null ? '' : ' in ${_countryName(country)}'} right now.\n\n'
           'Post the vacancy anyway — candidates register every day and we will '
           'match new ones to it automatically.',
@@ -131,7 +131,7 @@ class EmployerCopilotService {
       final languages = <String>{for (final c in matches) ...c.languages};
 
       return CopilotReply(
-        'From your Lucky Boss data:\n\n'
+        'From your Luckyboss data:\n\n'
         '• ${matches.length} ${role.toLowerCase()}'
         '${matches.length == 1 ? '' : 's'}'
         '${country == null ? ' across all three markets' : ' in ${_countryName(country)}'}\n'
@@ -181,7 +181,7 @@ class EmployerCopilotService {
         );
       }
       return CopilotReply(
-        'Licences held across the Lucky Boss database:\n\n'
+        'Licences held across the Luckyboss database:\n\n'
         '${top.take(8).map((e) => '• ${e.key} — ${e.value} candidates').join('\n')}\n\n'
         'Requiring one on a vacancy narrows who we can send you, so only tick '
         'what the job genuinely needs.',

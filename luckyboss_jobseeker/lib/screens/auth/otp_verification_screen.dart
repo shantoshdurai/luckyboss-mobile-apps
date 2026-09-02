@@ -4,20 +4,29 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/job_seeker_provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/firebase_identity_service.dart';
 import '../../widgets/otp_code_field.dart';
 import '../main_navigation_screen.dart';
 import '../onboarding/profile_wizard_screen.dart';
 
 /// SMS code verification.
 ///
-/// Reachable only when [AuthService.phoneOtpAvailable] is true — the sign-in
-/// screen will not route here otherwise. That matters: the previous version of
-/// this screen accepted any four digits and wrote a local token, so it was
-/// possible to reach the whole app without an account existing anywhere.
+/// Reached only after Firebase has actually sent an SMS, which is what
+/// [verificationId] represents. That matters: the previous version of this
+/// screen accepted any four digits and wrote a local token, so it was possible
+/// to reach the whole app without an account existing anywhere.
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
 
-  const OtpVerificationScreen({super.key, required this.phoneNumber});
+  /// Firebase's handle for the code it just sent. Pairs with the digits the
+  /// candidate types; one is useless without the other.
+  final String verificationId;
+
+  const OtpVerificationScreen({
+    super.key,
+    required this.phoneNumber,
+    required this.verificationId,
+  });
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -28,6 +37,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final _resendKey = GlobalKey<ResendCountdownState>();
 
   String _code = '';
+  /// Replaced on every resend — see [_resend].
+  late String _verificationId = widget.verificationId;
   bool _busy = false;
   String? _error;
 
@@ -44,8 +55,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _error = null;
     });
 
-    // The code is verified by Firebase/Backend, or local demo fallback in standalone mode.
-    final result = await AuthService.exchangeFirebaseToken(_code, phone: widget.phoneNumber);
+    // Firebase checks the code against the one it actually sent. The previous
+    // version passed the typed digits to exchangeFirebaseToken as though they
+    // were an ID token, which is why any four digits used to work.
+    final result = await AuthService.verifySmsCode(
+      verificationId: _verificationId,
+      smsCode: _code,
+      phone: widget.phoneNumber,
+    );
 
     if (!mounted) return;
     setState(() => _busy = false);
@@ -62,7 +79,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     provider.setAuthenticated(true, phone: session.phone ?? widget.phoneNumber);
     provider.setDemoMode(session.isDemo);
 
-    final profileComplete = await AuthService.isProfileComplete();
+    // Pull the profile back down before deciding anything. signOut() wiped
+    // the local copy, and the server is the only place it still exists.
+    await provider.hydrateAfterSignIn();
+    final profileComplete = provider.isProfileComplete;
     if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
@@ -78,12 +98,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   Future<void> _resend() async {
     setState(() => _error = null);
-    final result = await AuthService.sendPhoneOtp(fullPhoneNumber: widget.phoneNumber);
-    if (!mounted) return;
-    if (!result.success) {
-      setState(() => _error = result.message);
+    try {
+      // A resend produces a NEW verification id. Keeping the old one would make
+      // the fresh code the candidate just received fail as "invalid".
+      _verificationId =
+          await AuthService.sendPhoneOtp(fullPhoneNumber: widget.phoneNumber);
+    } on FirebaseIdentityException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
       return;
     }
+    if (!mounted) return;
     _codeKey.currentState?.clear();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

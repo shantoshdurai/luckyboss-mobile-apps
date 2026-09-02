@@ -150,7 +150,7 @@ class CompanyProfileTab extends StatelessWidget {
                   const Divider(height: 20),
                   _row(context, 'Live now', '${provider.activeJobsCount}'),
                   const Divider(height: 20),
-                  _row(context, 'Hired through Lucky Boss',
+                  _row(context, 'Hired through Luckyboss',
                       '${provider.hiredCount}'),
                 ],
               ),

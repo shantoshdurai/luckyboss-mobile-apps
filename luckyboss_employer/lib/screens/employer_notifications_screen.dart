@@ -113,7 +113,7 @@ class EmployerNotificationsScreen extends StatelessWidget {
         title: provider.company.status == CompanyStatus.draft
             ? 'Finish registering your company'
             : 'Verification in progress',
-        detail: 'Your vacancies stay as drafts until Lucky Boss has checked '
+        detail: 'Your vacancies stay as drafts until Luckyboss has checked '
             'your company.',
         when: now,
         onTap: onOpenJobs,
@@ -167,7 +167,7 @@ class EmployerNotificationsScreen extends StatelessWidget {
         tint: AppTheme.signalProgress,
         title: '${strong.length} strong match'
             '${strong.length == 1 ? '' : 'es'} for ${job.title}',
-        detail: 'In the Lucky Boss database and not yet contacted.',
+        detail: 'In the Luckyboss database and not yet contacted.',
         when: now,
         onTap: onOpenCandidates,
       ));

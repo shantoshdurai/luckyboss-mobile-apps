@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/employer_provider.dart';
+import '../../services/employer_auth_service.dart';
 import '../../widgets/ledger_components.dart';
 import '../../widgets/lucky_boss_brand_logo.dart';
 import '../employer_main_navigation_screen.dart';
@@ -48,7 +49,7 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
             style: AppTheme.sansBold(fontSize: 16, color: AppTheme.ink)),
         content: Text(
           'We could not find a company registered to $email on this device. '
-          'Register your company and Lucky Boss will verify it before your '
+          'Register your company and Luckyboss will verify it before your '
           'jobs go live.',
           style: AppTheme.body(color: AppTheme.inkMuted),
         ),
@@ -86,6 +87,38 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
     if (!mounted) return;
 
     final email = _emailController.text.trim().toLowerCase();
+
+    // Laravel first. This is the TODO that used to sit here: the employer login
+    // route has existed all along, and until now the app never called it — it
+    // compared the typed email against a company record on the handset and let
+    // anyone whose address matched straight in, with no password check anywhere.
+    final result = await EmployerAuthService.login(
+      email: email,
+      password: _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (result.success) {
+      provider.setAuthenticated(true);
+      await provider.flush();
+      if (!mounted) return;
+      _enter();
+      return;
+    }
+
+    // The server answered and refused. Do not fall through to the device check
+    // — that would let a wrong password in whenever Laravel says no.
+    if (!result.unreachable) {
+      setState(() {
+        _submitting = false;
+        _error = result.message;
+      });
+      return;
+    }
+
+    // No server reachable. Fall back to the on-device company record, which is
+    // what the standalone build relies on.
     final registered = provider.company.email.trim().toLowerCase();
 
     // No account, or a different one — refuse and point at registration.
@@ -105,12 +138,13 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
       return;
     }
 
-    // TODO: try POST /api/v1/auth/login first once an employer login route
-    // exists, and fall back to this device check only when nothing answers.
     provider.setAuthenticated(true);
     await provider.flush();
     if (!mounted) return;
+    _enter();
+  }
 
+  void _enter() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const EmployerMainNavigationScreen()),
@@ -295,6 +329,8 @@ class _EmployerLoginScreenState extends State<EmployerLoginScreen> {
                             )
                           : const Text('Sign in'),
                     ),
+
+
                     const SizedBox(height: 28),
 
                     Row(

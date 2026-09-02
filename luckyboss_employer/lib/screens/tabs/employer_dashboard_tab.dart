@@ -130,7 +130,7 @@ class EmployerDashboardTab extends StatelessWidget {
                   onTap: onOpenCandidates,
                   // The number that makes this app worth opening on a quiet
                   // day: people we can send you who have not applied.
-                  footnote: 'In the Lucky Boss database',
+                  footnote: 'In the Luckyboss database',
                 ),
                 _Metric(
                   label: 'Interviews',

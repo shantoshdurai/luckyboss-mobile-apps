@@ -211,7 +211,7 @@ class ResumeService {
         email: 'candidate@luckyboss.test',
         phone: '+91 98765 43210',
         currentTitle: 'Senior Mobile & AI Engineer',
-        currentCompany: 'Lucky Boss Tech',
+        currentCompany: 'Luckyboss Tech',
         yearsExperience: 3,
         qualification: 'Bachelor of Technology',
         course: 'Computer Science',

@@ -694,7 +694,7 @@ extension JobSourceStyle on JobSource {
   String get label {
     switch (this) {
       case JobSource.luckyBoss:
-        return 'Lucky Boss';
+        return 'Luckyboss';
       case JobSource.external:
         return 'External';
     }

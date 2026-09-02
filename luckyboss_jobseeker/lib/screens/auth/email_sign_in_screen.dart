@@ -74,7 +74,10 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     provider.setDemoMode(session.isDemo);
     provider.updateProfileBasicInfo(name: session.name, email: session.email);
 
-    final profileComplete = await AuthService.isProfileComplete();
+    // Pull the profile back down before deciding anything. signOut() wiped
+    // the local copy, and the server is the only place it still exists.
+    await provider.hydrateAfterSignIn();
+    final profileComplete = provider.isProfileComplete;
     if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
@@ -151,7 +154,7 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
                   style: AppTheme.serifTitle(fontSize: 28, color: AppTheme.inkOf(context))),
               const SizedBox(height: 6),
               Text(
-                'Use the email and password on your Lucky Boss account.',
+                'Use the email and password on your Luckyboss account.',
                 style: AppTheme.sansRegular(fontSize: 14, color: AppTheme.inkMutedOf(context)),
               ),
               const SizedBox(height: 30),

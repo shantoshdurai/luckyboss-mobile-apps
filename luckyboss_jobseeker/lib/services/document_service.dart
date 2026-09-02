@@ -179,7 +179,7 @@ class DocumentService {
     if (status.isPermanentlyDenied) {
       return const PickResult.failed(
         PickFailure.permissionPermanentlyDenied,
-        'Camera access is turned off for Lucky Boss. Open Settings to allow it.',
+        'Camera access is turned off for Luckyboss. Open Settings to allow it.',
       );
     }
 
@@ -188,13 +188,13 @@ class DocumentService {
     if (status.isPermanentlyDenied) {
       return const PickResult.failed(
         PickFailure.permissionPermanentlyDenied,
-        'Camera access is turned off for Lucky Boss. Open Settings to allow it.',
+        'Camera access is turned off for Luckyboss. Open Settings to allow it.',
       );
     }
 
     return const PickResult.failed(
       PickFailure.permissionDenied,
-      'Lucky Boss needs camera access to take the photo.',
+      'Luckyboss needs camera access to take the photo.',
     );
   }
 
