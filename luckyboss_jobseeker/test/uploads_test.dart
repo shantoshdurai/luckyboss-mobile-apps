@@ -286,6 +286,9 @@ void main() {
         workPermitStatuses: const ['Citizen'],
         availability: 'Immediately',
         photoUrl: 'data:image/jpeg;base64,AAAA',
+        // Worth 7% on the field table: an employer hiring a lorry driver asks
+        // where he is based before almost anything else.
+        currentCity: 'Chennai',
       );
 
       expect(driver.profileStrengthPercent, 100);

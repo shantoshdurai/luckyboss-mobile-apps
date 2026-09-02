@@ -355,87 +355,26 @@ class JobSeekerProvider extends ChangeNotifier {
   /// score silently clamped — a card promising +10% that moves the bar
   /// by three is worse than no card at all.
   /// The professional weighting: a CV, a summary, a department, projects.
-  static const Map<String, int> professionalWeights = {
-    'name': 5,
-    'email': 5,
-    'phone': 5,
-    'skills': 20,
-    'resume': 15,
-    'headline': 8,
-    'bio': 10,
-    'category': 6,
-    'department': 6,
-    'photo': 5,
-    'city': 5,
-    'salary': 4,
-    'projects': 3,
-    'languages': 3,
-  };
+  /// The weight tables and the score live on [SeekerProfileModel] so there is
+  /// exactly one formula. They used to live here as well, and the two
+  /// disagreed: the profile tab read the model's version while the home ring
+  /// and the drawer read this one, and the same candidate saw 83%, 70% and 61%
+  /// on three screens.
+  static const Map<String, int> professionalWeights =
+      SeekerProfileModel.professionalWeights;
 
-  /// The field weighting.
-  ///
-  /// The two tables exist because one table could not serve both. Under the
-  /// professional weights a construction worker could fill in every single
-  /// thing that is true about them — trade, years, licences, languages, permit
-  /// status, availability, photo, phone — and still be shown a profile stuck in
-  /// the sixties, because 42% of the score sat behind a resume document, an
-  /// "Executive Bio", a department and a projects list they will never have.
-  /// A completion bar that cannot reach 100% is not a nudge, it is a scold.
-  ///
-  /// So the field table scores what a field candidate genuinely has, and the
-  /// boost cards read from whichever table applies.
-  static const Map<String, int> fieldWeights = {
-    'name': 8,
-    'phone': 8,
-    'category': 8,
-    'role': 16,
-    'skills': 15,
-    'certificates': 12,
-    'languages': 8,
-    'permit': 8,
-    'city': 7,
-    'availability': 5,
-    'photo': 5,
-  };
+  static const Map<String, int> fieldWeights = SeekerProfileModel.fieldWeights;
 
-  /// The weights in force for this candidate.
-  Map<String, int> get completionWeightsFor =>
-      _profile.isFieldWork ? fieldWeights : professionalWeights;
-
-  /// Kept for callers that predate the split. Prefer [completionWeightsFor].
+  /// Kept for callers that predate the field/professional split.
   static const Map<String, int> completionWeights = professionalWeights;
 
-  /// Whether each weighted field is filled. Keyed by the same names.
-  Map<String, bool> get completionState => {
-        'name': _profile.name.trim().isNotEmpty,
-        'email': _profile.email.trim().isNotEmpty,
-        'phone': _profile.phone.trim().isNotEmpty,
-        'skills': _profile.skills.isNotEmpty,
-        'resume': _profile.resumeFileName != null,
-        'headline': _profile.headline.trim().isNotEmpty,
-        'bio': _profile.bio.trim().isNotEmpty,
-        'category': _profile.preferredCategory.trim().isNotEmpty,
-        'department': _profile.department.trim().isNotEmpty,
-        'photo': (_profile.photoUrl ?? '').isNotEmpty,
-        'city': _profile.currentCity.trim().isNotEmpty,
-        'salary': _profile.expectedSalary.trim().isNotEmpty,
-        'projects': _profile.projects.isNotEmpty,
-        'languages': _profile.languages.isNotEmpty,
-        'role': _profile.roleTitle.trim().isNotEmpty ||
-            _profile.currentTitle.trim().isNotEmpty,
-        'certificates': _profile.certificates.isNotEmpty,
-        'permit': _profile.workPermitStatus.trim().isNotEmpty,
-        'availability': _profile.availability.trim().isNotEmpty,
-      };
+  /// The weights in force for this candidate.
+  Map<String, int> get completionWeightsFor => _profile.completionWeights;
 
-  int get profileCompletion {
-    final state = completionState;
-    var earned = 0;
-    completionWeightsFor.forEach((key, weight) {
-      if (state[key] == true) earned += weight;
-    });
-    return earned.clamp(0, 100);
-  }
+  /// Whether each weighted field is filled. Keyed by the same names.
+  Map<String, bool> get completionState => _profile.completionState;
+
+  int get profileCompletion => _profile.profileStrengthPercent;
 
   /// What to ask for next. Naming the single highest-value missing field beats
   /// a generic "complete your profile" prompt nobody acts on.

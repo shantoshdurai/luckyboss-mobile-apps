@@ -281,54 +281,92 @@ class SeekerProfileModel {
   /// The field formula scores the things that actually get a field candidate
   /// hired: a trade, years, the work they can do, their licences, the languages
   /// they speak and their availability.
+  /// How complete this profile is, 0-100.
+  ///
+  /// ONE FORMULA, ON PURPOSE. There used to be two: this getter carried a
+  /// hardcoded score of its own, while JobSeekerProvider.profileCompletion
+  /// added up a separate weight table. The profile tab read one and the home
+  /// ring and drawer read the other, so the same candidate was told 83%, 70%
+  /// and 61% on three screens of the same app. Whichever number was right, the
+  /// disagreement made all of them look invented.
+  ///
+  /// The weights below are the ones that survived, because they are the ones
+  /// the "+15% Add your licences" boost cards are calculated from — a card
+  /// promising a jump that the bar then does not make is worse than no card.
+  ///
+  /// Two tables, not one: a field candidate is scored on trade, licences,
+  /// languages and permit, a professional on resume, headline and summary.
+  /// Scoring both off a single table put 35% of a cleaner's score behind a CV
+  /// and an executive bio they will never have, so they could answer every
+  /// question truthfully and still be told they were half finished.
   int get profileStrengthPercent {
-    int score = 0;
+    final weights = completionWeights;
+    final state = completionState;
 
-    // Contact details are worth the same on both paths — nobody is placed
-    // without them.
-    if (name.trim().isNotEmpty && phone.trim().isNotEmpty) {
-      score += 25;
-    } else if (name.trim().isNotEmpty || phone.trim().isNotEmpty) {
-      score += 15;
-    }
+    var earned = 0;
+    weights.forEach((key, weight) {
+      if (state[key] == true) earned += weight;
+    });
 
-    if (isFieldWork) {
-      if (roleTitle.trim().isNotEmpty || currentTitle.trim().isNotEmpty) {
-        score += 20;
-      }
-      if (skills.length >= 3) {
-        score += 15;
-      } else if (skills.isNotEmpty) {
-        score += (skills.length * 5).clamp(0, 15);
-      }
-      if (certificates.isNotEmpty) score += 15;
-      if (languages.isNotEmpty) score += 10;
-      if (workPermitStatus.trim().isNotEmpty) score += 10;
-      if (availability.trim().isNotEmpty) score += 5;
-      if ((photoUrl ?? '').isNotEmpty) score += 5;
-      return score.clamp(0, 100);
-    }
-
-    if (email.trim().isNotEmpty) score += 15;
-
-    if (resumeFileName != null && resumeFileName!.trim().isNotEmpty) {
-      score += 20;
-    }
-
-    if (skills.length >= 3) {
-      score += 20;
-    } else if (skills.isNotEmpty) {
-      score += (skills.length * 7).clamp(0, 20);
-    }
-
-    if (bio.trim().length >= 30) {
-      score += 20;
-    } else if (bio.trim().isNotEmpty) {
-      score += 10;
-    }
-
-    return score.clamp(0, 100);
+    return earned.clamp(0, 100);
   }
+
+  /// The weights in force for this candidate. Each table sums to 100.
+  Map<String, int> get completionWeights =>
+      isFieldWork ? fieldWeights : professionalWeights;
+
+  static const Map<String, int> professionalWeights = {
+    'name': 5,
+    'email': 5,
+    'phone': 5,
+    'skills': 20,
+    'resume': 15,
+    'headline': 8,
+    'bio': 10,
+    'category': 6,
+    'department': 6,
+    'photo': 5,
+    'city': 5,
+    'salary': 4,
+    'projects': 3,
+    'languages': 3,
+  };
+
+  static const Map<String, int> fieldWeights = {
+    'name': 8,
+    'phone': 8,
+    'category': 8,
+    'role': 16,
+    'skills': 15,
+    'certificates': 12,
+    'languages': 8,
+    'permit': 8,
+    'city': 7,
+    'availability': 5,
+    'photo': 5,
+  };
+
+  /// Whether each weighted field is filled. Keyed by the same names.
+  Map<String, bool> get completionState => {
+        'name': name.trim().isNotEmpty,
+        'email': email.trim().isNotEmpty,
+        'phone': phone.trim().isNotEmpty,
+        'skills': skills.isNotEmpty,
+        'resume': resumeFileName != null,
+        'headline': headline.trim().isNotEmpty,
+        'bio': bio.trim().isNotEmpty,
+        'category': preferredCategory.trim().isNotEmpty,
+        'department': department.trim().isNotEmpty,
+        'photo': (photoUrl ?? '').isNotEmpty,
+        'city': currentCity.trim().isNotEmpty,
+        'salary': expectedSalary.trim().isNotEmpty,
+        'projects': projects.isNotEmpty,
+        'languages': languages.isNotEmpty,
+        'role': roleTitle.trim().isNotEmpty || currentTitle.trim().isNotEmpty,
+        'certificates': certificates.isNotEmpty,
+        'permit': workPermitStatus.trim().isNotEmpty,
+        'availability': availability.trim().isNotEmpty,
+      };
 
   // ---------------------------------------------------------------------------
   // PERSISTENCE

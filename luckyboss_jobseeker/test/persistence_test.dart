@@ -20,6 +20,7 @@ import 'package:luckyboss_jobseeker/services/local_store.dart';
 /// without writing anything to storage. These tests exist so that cannot come
 /// back silently.
 void main() {
+  _profileCompletionGroup();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
@@ -339,6 +340,9 @@ void main() {
         workPermitStatuses: const ['Citizen'],
         availability: 'Immediately',
         photoUrl: 'data:image/jpeg;base64,AAAA',
+        // Where he can work is worth 7% on the field table, and an employer
+        // hiring a mason asks it before almost anything else.
+        currentCity: 'Chennai',
       );
 
       expect(mason.isFieldWork, isTrue);
@@ -357,6 +361,13 @@ void main() {
         skills: const ['Flutter', 'Dart', 'SQL'],
         resumeFileName: 'cv.pdf',
         bio: 'Mobile engineer with several years building recruitment products.',
+        headline: 'Senior Mobile Engineer',
+        department: 'Engineering',
+        photoUrl: 'data:image/jpeg;base64,AAAA',
+        currentCity: 'Singapore',
+        expectedSalary: '7000',
+        projects: const ['Recruitment platform'],
+        languages: const ['English'],
       );
 
       expect(engineer.isFieldWork, isFalse);
@@ -424,4 +435,57 @@ void _expectFieldCategoriesCovered(Set<String> covered, String country) {
     expect(covered, contains(category.name),
         reason: '${category.name} has no vacancy in $country');
   }
+}
+
+void _profileCompletionGroup() {
+  group('profile completion is one number everywhere', () {
+    test('the provider and the model never disagree', () {
+      final provider = JobSeekerProvider();
+      provider.applyOnboarding(
+        category: 'Construction',
+        roleTitle: 'Site Supervisor',
+        isStudent: false,
+        currentCity: 'Chennai',
+      );
+      provider.setSkills(const ['Formwork', 'Concreting', 'Brickwork']);
+
+      // The home ring and drawer read provider.profileCompletion; the profile
+      // tab and edit screen read profile.profileStrengthPercent. They used to
+      // be two different formulas, and the same candidate was shown 83%, 70%
+      // and 61% on three screens of one app.
+      expect(provider.profileCompletion,
+          provider.profile.profileStrengthPercent);
+    });
+
+    test('every weight table adds up to exactly 100', () {
+      for (final table in [
+        SeekerProfileModel.fieldWeights,
+        SeekerProfileModel.professionalWeights,
+      ]) {
+        final total = table.values.fold<int>(0, (a, b) => a + b);
+        expect(total, 100,
+            reason: 'a table that does not total 100 makes a fully completed '
+                'profile stop short of 100% forever');
+      }
+    });
+
+    test('a boost card promises exactly what the bar then moves', () {
+      final provider = JobSeekerProvider();
+      provider.applyOnboarding(
+        category: 'Construction',
+        roleTitle: 'Site Supervisor',
+        isStudent: false,
+        currentCity: 'Chennai',
+      );
+
+      final before = provider.profileCompletion;
+      final promised = provider.completionWeightsFor['skills']!;
+
+      provider.setSkills(const ['Formwork']);
+
+      expect(provider.profileCompletion - before, promised,
+          reason: 'a card offering +$promised% that moves the bar by a '
+              'different amount reads as a lie');
+    });
+  });
 }
