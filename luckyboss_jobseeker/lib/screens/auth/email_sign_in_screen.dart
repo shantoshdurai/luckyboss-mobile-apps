@@ -71,7 +71,6 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     final session = result.session!;
     final provider = context.read<JobSeekerProvider>();
     provider.setAuthenticated(true, phone: session.phone);
-    provider.setDemoMode(session.isDemo);
     provider.updateProfileBasicInfo(name: session.name, email: session.email);
 
     // Pull the profile back down before deciding anything. signOut() wiped
@@ -83,7 +82,7 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (_) => profileComplete || session.isDemo
+        builder: (_) => profileComplete
             ? const MainNavigationScreen()
             : const ProfileWizardScreen(),
       ),

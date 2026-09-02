@@ -55,7 +55,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
 
   String _type = '';
   String _country = 'SG';
-  String _selectedPlan = 'Free Demo Access';
+  String _selectedPlan = 'Free';
   int _step = 0;
   bool _submitting = false;
 
@@ -448,12 +448,15 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
 
     final plans = [
       (
-        id: 'Free Demo Access',
-        name: 'Free Demo Access',
-        price: 'Free Trial · $currencySymbol 0',
-        period: '30-day promotional trial',
-        desc: 'Instant full access to try creating jobs, reviewing matching candidates, and exploring the portal without payment.',
-        badge: 'Recommended Demo',
+        // Renamed from "Free Demo Access". It was never a demo — it is the
+        // real entry tier every new company starts on, and calling it a demo
+        // made a production signup look like a sandbox.
+        id: 'Free',
+        name: 'Free Plan',
+        price: 'Free · $currencySymbol 0',
+        period: 'No card required',
+        desc: 'Full access to post jobs, review matching candidates and run your pipeline. Upgrade when you need more volume.',
+        badge: 'Recommended',
         features: [
           '5 Active Job Posts',
           '50 Candidate Contact Credits',
@@ -555,7 +558,7 @@ class _CompanyRegistrationScreenState extends State<CompanyRegistrationScreen> {
         const SizedBox(height: 12),
         _reviewCard('Plan & Subscription', [
           (_selectedPlan, 'Selected plan'),
-          ('Active demo trial included', 'Status'),
+          ('Free plan active', 'Status'),
         ]),
         const SizedBox(height: 12),
         _reviewCard(

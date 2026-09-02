@@ -57,11 +57,6 @@ class AuthSession {
   final String email;
   final String? phone;
 
-  /// True when signed in as the seeded demo candidate. The UI uses this to
-  /// block writes and show the demo banner — but the server enforces it too,
-  /// which is the check that actually matters.
-  final bool isDemo;
-
   /// True when this account exists only on this handset because no Lucky Boss
   /// server answered. It is a real, durable account from the candidate's point
   /// of view — it survives restarts and owns their profile — but its [token] was
@@ -75,7 +70,6 @@ class AuthSession {
     required this.name,
     required this.email,
     this.phone,
-    this.isDemo = false,
     this.isLocal = false,
   });
 
@@ -85,7 +79,6 @@ class AuthSession {
         name: name ?? this.name,
         email: email ?? this.email,
         phone: phone ?? this.phone,
-        isDemo: isDemo,
         isLocal: isLocal,
       );
 
@@ -94,7 +87,6 @@ class AuthSession {
         'name': name,
         'email': email,
         'phone': phone,
-        'is_demo': isDemo,
         'is_local': isLocal,
       };
 
@@ -103,7 +95,6 @@ class AuthSession {
         name: (j['name'] ?? '') as String,
         email: (j['email'] ?? '') as String,
         phone: j['phone'] as String?,
-        isDemo: (j['is_demo'] ?? false) as bool,
         isLocal: (j['is_local'] ?? false) as bool,
       );
 }
@@ -283,37 +274,6 @@ class AuthService {
     ));
   }
 
-  /// Signs in to the seeded read-only demo candidate.
-  static Future<AuthResult> loginDemo() async {
-    final result = await _post(
-      '${ApiConfig.v1}/auth/demo',
-      const {},
-      onInvalid: 'The demo account is not available on this server.',
-    );
-    if (result.success && result.session != null) {
-      final s = result.session!;
-      return AuthResult.ok(AuthSession(
-        token: s.token,
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        isDemo: true,
-      ));
-    }
-
-    // Offline demo fallback: lets the whole UI, job feed and profile be walked
-    // through on a handset with no Laravel server behind it. The name is left
-    // blank deliberately — inventing one put a fictional candidate on screen and
-    // made the app look like it was showing someone else's data.
-    return _persistLocal(const AuthSession(
-      token: 'demo-offline-token',
-      name: '',
-      email: 'candidate@luckyboss.test',
-      isDemo: true,
-      isLocal: true,
-    ));
-  }
-
   // ---------------------------------------------------------------------------
   // PHONE OTP
   // ---------------------------------------------------------------------------
@@ -451,7 +411,6 @@ class AuthService {
           name: (user['name'] ?? '') as String,
           email: (user['email'] ?? '') as String,
           phone: user['phone'] as String?,
-          isDemo: (data['is_demo'] ?? false) as bool,
         );
         await _persist(session);
         return AuthResult.ok(session);

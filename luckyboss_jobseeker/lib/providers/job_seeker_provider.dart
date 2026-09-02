@@ -23,7 +23,6 @@ class JobSeekerProvider extends ChangeNotifier {
   /// True while signed in to the seeded read-only demo account. Drives the
   /// in-app banner and disables write affordances; the server refuses the
   /// writes regardless, so this is presentation, not protection.
-  bool _isDemoMode = false;
   String _selectedCountry = 'IN'; // India default
   String _selectedCategory = 'All Roles';
   String _searchQuery = '';
@@ -518,7 +517,6 @@ class JobSeekerProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
-  bool get isDemoMode => _isDemoMode;
   bool get isProfileComplete => _isProfileComplete;
   String get selectedCountry => _selectedCountry;
   String get selectedCategory => _selectedCategory;
@@ -551,7 +549,6 @@ class JobSeekerProvider extends ChangeNotifier {
     final session = await AuthService.currentSession();
     _isAuthenticated = session != null;
     _isProfileComplete = await AuthService.isProfileComplete();
-    _isDemoMode = session?.isDemo ?? false;
 
     if (session != null) {
       // Only fill blanks. A candidate who has since edited their profile in the
@@ -583,7 +580,6 @@ class JobSeekerProvider extends ChangeNotifier {
     await LocalStore.clearAll();
     _isAuthenticated = false;
     _isProfileComplete = false;
-    _isDemoMode = false;
     _myApplications.clear();
     _savedJobIds.clear();
     _documents.clear();
@@ -702,11 +698,6 @@ class JobSeekerProvider extends ChangeNotifier {
         _profile.noticePeriod = value as String;
     }
     _answeredPrompts.add(id);
-    notifyListeners();
-  }
-
-  void setDemoMode(bool value) {
-    _isDemoMode = value;
     notifyListeners();
   }
 

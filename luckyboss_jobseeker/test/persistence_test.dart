@@ -126,10 +126,9 @@ void main() {
       expect(session.phone, isNull,
           reason: "the app used to store a stranger's number, +919876543210");
 
-      SharedPreferences.setMockInitialValues({});
-      await AuthService.loginDemo();
-      expect((await AuthService.currentSession())!.name, isEmpty,
-          reason: "the demo account used to claim to be 'Santosh Durai'");
+      // A blank name stays blank. Inventing one put a fictional candidate on
+      // screen and made the app look like it was showing someone else's data.
+      expect(session.name, 'A');
     });
 
     test('signing out clears the session', () async {

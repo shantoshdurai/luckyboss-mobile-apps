@@ -77,7 +77,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final session = result.session!;
     final provider = context.read<JobSeekerProvider>();
     provider.setAuthenticated(true, phone: session.phone ?? widget.phoneNumber);
-    provider.setDemoMode(session.isDemo);
 
     // Pull the profile back down before deciding anything. signOut() wiped
     // the local copy, and the server is the only place it still exists.

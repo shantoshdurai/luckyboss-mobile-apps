@@ -93,7 +93,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final provider = context.read<JobSeekerProvider>();
     provider.setAuthenticated(true, phone: _e164);
-    provider.setDemoMode(false);
     provider.updateProfileBasicInfo(name: name, email: email);
 
     Navigator.pushAndRemoveUntil(
