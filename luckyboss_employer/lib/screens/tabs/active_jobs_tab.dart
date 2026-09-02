@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_data.dart';
 import '../../core/theme/app_theme.dart';
+import '../jobs/job_insights_screen.dart';
 import '../../models/employer_job.dart';
 import '../../providers/employer_provider.dart';
 import '../../widgets/boost_sheet.dart';
@@ -345,6 +346,29 @@ class _JobCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
+              // Performance sits directly above the boost control on purpose:
+              // the employer deciding whether to pay for a boost, and the one
+              // asking what the last boost did, are the same person at the same
+              // moment. Selling a boost and never reporting on it is the gap
+              // this closes.
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => JobInsightsScreen(
+                        jobId: int.tryParse(job.id) ?? 0,
+                        jobTitle: job.title,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.insights_outlined, size: 16),
+                  label: Text('See how this job is doing',
+                      style: AppTheme.sansBold(
+                          fontSize: 13, color: AppTheme.royalBlue)),
+                ),
+              ),
               // The boost control sits on the card because that is where an
               // employer decides one job matters more than the others.
               SizedBox(
