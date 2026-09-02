@@ -282,6 +282,22 @@ class _ProfileWizardScreenState extends State<ProfileWizardScreen> {
       return;
     }
 
+    // Saved on the server but not parsed — autofill is switched off,
+    // temporarily unavailable, or the document could not be read. The CV is
+    // attached to the profile either way, so this is shown as a normal outcome
+    // with a prompt to type the details, not as a failure. Keeping the file
+    // name on screen is the part that matters: it is the candidate's proof the
+    // upload worked.
+    if (result.savedWithoutParsing) {
+      setState(() => _data.resumeFileName = result.savedFileName);
+      _notify(
+        result.message ??
+            'Your resume has been saved. Please enter your details below.',
+        AppTheme.signalAttention,
+      );
+      return;
+    }
+
     switch (result.failure) {
       case ResumeFailure.cancelled:
         return;

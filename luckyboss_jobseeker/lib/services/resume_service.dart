@@ -75,13 +75,32 @@ class ResumeResult {
   final ResumeFailure? failure;
   final String? message;
 
+  /// The file name held on the server when the document was saved but not
+  /// parsed. The wizard shows this so the candidate can see their CV is
+  /// attached while they type the rest in.
+  final String? savedFileName;
+
   const ResumeResult.success(this.data)
       : failure = null,
-        message = null;
+        message = null,
+        savedFileName = null;
 
-  const ResumeResult.failed(this.failure, this.message) : data = null;
+  const ResumeResult.failed(this.failure, this.message)
+      : data = null,
+        savedFileName = null;
+
+  /// Uploaded and kept, but not parsed — autofill is off, unavailable, or the
+  /// document could not be read. Not a failure: the candidate has lost nothing
+  /// and simply fills the fields in themselves.
+  const ResumeResult.savedOnly(this.savedFileName, this.message,
+      {bool stored = true})
+      : data = null,
+        failure = stored ? null : ResumeFailure.unreadable;
 
   bool get ok => data != null;
+
+  /// True when the document is on the server even though nothing was extracted.
+  bool get savedWithoutParsing => data == null && savedFileName != null;
 }
 
 /// Resume upload and AI extraction.
@@ -177,50 +196,70 @@ class ResumeService {
       );
 
       final body = _decode(response.body);
+      final status = body?['status'] as String?;
+      final message = body?['message'] as String?;
+
+      // The server keeps the document in every outcome, so a "we could not
+      // read it" answer still carries the saved file. Reading `status` rather
+      // than the HTTP code is what makes that possible: autofill being switched
+      // off is no longer an error, it is a successful upload without parsing.
+      final saved = body?['resume'] as Map<String, dynamic>?;
+      final savedName = saved?['file_name'] as String? ?? fileName;
+      final wasStored = (saved?['stored'] ?? false) == true;
 
       if (response.statusCode == 200) {
-        final data = body?['data'] as Map<String, dynamic>?;
-        if (data == null) {
-          return const ResumeResult.failed(
-            ResumeFailure.unreadable,
-            'We could not read that resume. Please enter your details manually.',
-          );
+        if (status == 'success') {
+          final data = body?['data'] as Map<String, dynamic>?;
+          if (data != null) {
+            return ResumeResult.success(ParsedResume.fromJson(data, savedName));
+          }
         }
-        return ResumeResult.success(ParsedResume.fromJson(data, fileName));
+
+        // disabled | unavailable | unreadable — the resume is on file, the
+        // candidate just has to type the details in.
+        return ResumeResult.savedOnly(
+          savedName,
+          message ??
+              'Your resume has been saved. Please enter your details below.',
+          stored: wasStored,
+        );
       }
 
-      if (response.statusCode == 403) {
-        // Covers both the admin switch and the demo account's read-only guard.
+      if (response.statusCode == 401) {
+        return const ResumeResult.failed(
+          ResumeFailure.network,
+          'Please sign in again to upload your resume.',
+        );
+      }
+
+      if (response.statusCode == 422) {
         return ResumeResult.failed(
-          ResumeFailure.disabled,
-          body?['message'] as String? ??
-              'Resume autofill is switched off. Please enter your details manually.',
+          ResumeFailure.unreadable,
+          message ?? 'Upload a PDF or Word document under 4 MB.',
         );
       }
 
       return ResumeResult.failed(
         ResumeFailure.unreadable,
-        body?['message'] as String? ??
-            'We could not read that resume. Please enter your details manually.',
+        message ??
+            'We could not upload that resume. Please enter your details manually.',
       );
     } catch (e) {
-      debugPrint('[ResumeService] upload failed, using offline extraction: $e');
-      // Offline fallback: Extracts smart sample details for seamless offline review
-      return ResumeResult.success(ParsedResume(
-        name: 'Santosh Durai',
-        email: 'candidate@luckyboss.test',
-        phone: '+91 98765 43210',
-        currentTitle: 'Senior Mobile & AI Engineer',
-        currentCompany: 'Luckyboss Tech',
-        yearsExperience: 3,
-        qualification: 'Bachelor of Technology',
-        course: 'Computer Science',
-        passingYear: '2023',
-        currentCity: 'Bengaluru',
-        skills: const ['Flutter', 'Dart', 'Firebase', 'REST APIs', 'Git'],
-        summary: 'Cross-platform mobile developer with 3+ years experience building production apps.',
-        fileName: fileName,
-      ));
+      debugPrint('[ResumeService] upload failed: $e');
+
+      // Deliberately NOT a fabricated profile.
+      //
+      // This branch used to return a complete invented candidate — "Santosh
+      // Durai", a Bengaluru address, three years at "Luckyboss Tech", a Flutter
+      // skill set — as though it had been read off the document. Whatever the
+      // real person uploaded, a fictional work history went onto their profile
+      // and from there to employers. The class docstring three lines up already
+      // promised this never happens; now it is true.
+      return const ResumeResult.failed(
+        ResumeFailure.network,
+        'We could not reach the server to upload your resume. Check your '
+        'connection and try again, or enter your details below.',
+      );
     }
   }
 

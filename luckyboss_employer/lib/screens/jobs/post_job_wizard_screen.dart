@@ -5,6 +5,7 @@ import '../../core/constants/app_data.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/employer_job.dart';
 import '../../providers/employer_provider.dart';
+import '../../services/employer_ai_service.dart';
 import '../../widgets/city_field.dart';
 import '../../widgets/onboarding_components.dart';
 import '../../widgets/searchable_chip_picker.dart';
@@ -66,6 +67,11 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
 
   // --- answers ---
   String _category = '';
+
+  /// Whether this company's subscription includes AI. Asked once when the
+  /// wizard opens; the server re-checks on every call regardless.
+  EmployerAiStatus _ai = const EmployerAiStatus.unknown();
+  bool _drafting = false;
   final Set<String> _roles = {};
   String get _role => _roles.join(', ');
   final Set<String> _skills = {};
@@ -99,6 +105,110 @@ class _PostJobWizardScreenState extends State<PostJobWizardScreen> {
         3 => true,
         _ => false,
       };
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text(message),
+      ));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Asked once so the button can read "Draft this with AI" on a plan that
+    // includes it. Never trusted for access — the server re-checks.
+    EmployerAiService.status().then((status) {
+      if (mounted) setState(() => _ai = status);
+    });
+  }
+
+  /// Drafts the description from the job title.
+  ///
+  /// The server decides whether this is a real AI draft or the rule-based
+  /// template, based on the company's package. Either way the employer gets
+  /// usable text — what changes is the note underneath, which says plainly
+  /// which one they got rather than passing a template off as AI.
+  Future<void> _draftWithAi() async {
+    final title = _titleController.text.trim().isEmpty
+        ? _role
+        : _titleController.text.trim();
+
+    if (title.isEmpty) {
+      _toast('Enter the job title first, then I can draft the description.');
+      return;
+    }
+
+    setState(() => _drafting = true);
+    try {
+      final result = await EmployerAiService.draftJobDescription(
+        title: title,
+        category: _category,
+        location: _cityController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      final summary = (result.data['summary'] ?? '').toString();
+      final responsibilities =
+          (result.data['responsibilities'] as List?)?.cast<Object?>() ?? const [];
+      final requirements =
+          (result.data['requirements'] as List?)?.cast<Object?>() ?? const [];
+
+      final buffer = StringBuffer();
+      if (summary.isNotEmpty) buffer.writeln(summary);
+      if (responsibilities.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln('What you will do:');
+        for (final r in responsibilities) {
+          buffer.writeln('- $r');
+        }
+      }
+      if (requirements.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln('What we are looking for:');
+        for (final r in requirements) {
+          buffer.writeln('- $r');
+        }
+      }
+
+      setState(() {
+        _descriptionController.text = buffer.toString().trim();
+        _drafting = false;
+      });
+
+      _toast(result.fromAi
+          ? 'Drafted with AI. Edit anything before you post.'
+          : (result.message ??
+              'Drafted from a template. Upgrade your plan for AI drafting.'));
+    } on AiFailure catch (e) {
+      if (!mounted) return;
+      setState(() => _drafting = false);
+      _toast(e.message);
+    }
+  }
+
+  Widget _draftWithAiButton() => SizedBox(
+        height: 44,
+        child: OutlinedButton.icon(
+          onPressed: _drafting ? null : _draftWithAi,
+          icon: _drafting
+              ? const SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.auto_awesome_outlined, size: 18),
+          label: Text(
+            _drafting
+                ? 'Writing the draft...'
+                : _ai.available
+                    ? 'Draft this with AI'
+                    : 'Draft this for me',
+          ),
+        ),
+      );
 
   @override
   void dispose() {
@@ -789,7 +899,12 @@ controller: _titleController,
 
         RevealedField(
           label: 'Description',
-          child: TextField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _draftWithAiButton(),
+              const SizedBox(height: 10),
+              TextField(
             controller: _descriptionController,
             minLines: 4,
             maxLines: 8,
@@ -798,6 +913,8 @@ controller: _titleController,
                 fontSize: 14.5, color: AppTheme.inkOf(context)),
             decoration: _inputDecoration(
                 'Working hours, what the day looks like, who to ask for.'),
+              ),
+            ],
           ),
         ),
 
