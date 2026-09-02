@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../providers/job_seeker_provider.dart';
+import '../services/app_settings_service.dart';
 import '../providers/theme_provider.dart';
 import '../screens/auth/sign_in_screen.dart';
 import 'lucky_boss_brand_logo.dart';
@@ -63,6 +64,7 @@ class AppDrawer extends StatelessWidget {
                   // The assistant, reachable from the menu as well as the
                   // header icon. Shantosh asked for it here because the drawer
                   // is where people look for "things the app can do".
+                  if (AppSettingsService.current.aiAssistant)
                   _item(context, Icons.auto_awesome, 'Speak to Lucky AI',
                       () {
                     Navigator.pop(context);

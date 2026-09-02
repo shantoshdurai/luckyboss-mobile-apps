@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
+import '../services/app_settings_service.dart';
 import '../widgets/lucky_ai_copilot_modal.dart';
 import 'jobs/job_search_screen.dart';
 import 'tabs/seeker_dashboard_tab.dart';
@@ -53,7 +54,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: FocusTraversalGroup(
         child: IndexedStack(index: _currentIndex, children: _tabs),
       ),
-      floatingActionButton: _currentIndex == 0
+      // Hidden when the admin has switched AI off. The server refuses the call
+      // either way — this stops the candidate tapping a button that can only
+      // disappoint them.
+      floatingActionButton:
+          _currentIndex == 0 && AppSettingsService.current.aiAssistant
           ? FloatingActionButton(
               onPressed: () => LuckyAiCopilotModal.show(context),
               backgroundColor: AppTheme.primaryFillOf(context),

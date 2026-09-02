@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'providers/job_seeker_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/app_settings_service.dart';
 import 'services/firebase_identity_service.dart';
 
 Future<void> main() async {
@@ -19,6 +20,12 @@ Future<void> main() async {
   // and password, which is the whole point of initialising it here rather than
   // lazily at the first tap.
   await FirebaseIdentityService.initialise();
+
+  // Which features the admin has switched on. Loaded from cache first so the
+  // first frame is already correct, then refreshed. Never fatal: an unreachable
+  // server leaves whatever was last known in force.
+  await AppSettingsService.load();
+
   runApp(const LuckyBossJobSeekerApp());
 }
 
