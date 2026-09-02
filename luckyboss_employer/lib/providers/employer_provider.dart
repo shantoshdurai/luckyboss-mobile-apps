@@ -290,9 +290,12 @@ class EmployerProvider extends ChangeNotifier {
       ..clear()
       ..addAll(await EmployerStore.loadDocuments());
 
+    // Real applicants when the server answers, the bundled samples when it
+    // does not. Until this, every recruiter scrolled sample data and thought it
+    // was their pipeline.
     _pool
       ..clear()
-      ..addAll(await CandidatePoolService.fetch());
+      ..addAll(await CandidatePoolService.fetchFromServer());
 
     // Re-apply what this company had done with each candidate. Kept apart from
     // the pool so refreshing candidates never wipes a recruiter's pipeline.

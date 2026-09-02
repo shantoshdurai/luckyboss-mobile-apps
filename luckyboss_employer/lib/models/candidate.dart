@@ -14,6 +14,12 @@ import 'employer_job.dart';
 /// person seen from the other side.
 class Candidate {
   final String id;
+
+  /// The Laravel `job_applications.id` for a real applicant, null for the
+  /// bundled samples. Drafting a letter or moving a stage needs it: acting on
+  /// a candidate by a display id like "cand-12" is how the wrong person gets
+  /// an offer.
+  final int? applicationId;
   final String name;
 
   /// The trade, from the shared taxonomy. What a recruiter reads after the name.
@@ -71,6 +77,7 @@ class Candidate {
 
   Candidate({
     required this.id,
+    this.applicationId,
     required this.name,
     required this.role,
     required this.category,
