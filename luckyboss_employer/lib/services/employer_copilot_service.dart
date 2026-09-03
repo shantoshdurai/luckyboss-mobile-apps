@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import '../core/config/api_config.dart';
@@ -48,6 +49,19 @@ class CopilotReply {
 /// holds. That is genuinely useful to a recruiter and every figure is real —
 /// and [ReplySource.localData] tells the UI to say where it came from.
 class EmployerCopilotService {
+  /// Swapped out in tests so they do not depend on whether a Laravel server
+  /// happens to be running on the developer's machine.
+  ///
+  /// These tests describe the offline path — "the assistant answers from real
+  /// data when offline" — and asserted it by assuming nothing would answer.
+  /// That assumption was false whenever anyone had `php artisan serve` up: the
+  /// copilot reached the real endpoint, returned a model reply, and four tests
+  /// failed for a reason that had nothing to do with the code under test.
+  @visibleForTesting
+  static http.Client? clientOverride;
+
+  static http.Client get _client => clientOverride ?? http.Client();
+
   EmployerCopilotService._();
 
   static Future<CopilotReply> ask(
@@ -65,7 +79,7 @@ class EmployerCopilotService {
     }
 
     try {
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse(ApiConfig.aiChat),
             headers: const {

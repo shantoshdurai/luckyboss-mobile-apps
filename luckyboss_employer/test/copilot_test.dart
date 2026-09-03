@@ -1,4 +1,7 @@
+import 'dart:io' show SocketException;
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/testing.dart';
 
 import 'package:luckybossemployer/models/candidate.dart';
 import 'package:luckybossemployer/models/employer_job.dart';
@@ -58,8 +61,20 @@ void main() {
       );
 
   group('the assistant answers from real data when offline', () {
-    // No server is reachable in a test, so every call here takes the offline
-    // path — which is the path under test.
+    // The offline path is the path under test, so the absence of a server is
+    // enforced rather than assumed.
+    //
+    // These tests used to rely on nothing answering, which was false whenever
+    // anyone had `php artisan serve` running: the copilot reached the real
+    // endpoint, came back with a model reply, and four tests failed for a
+    // reason unrelated to the code they cover.
+    setUp(() {
+      EmployerCopilotService.clientOverride = MockClient(
+        (_) async => throw const SocketException('no server in tests'),
+      );
+    });
+
+    tearDown(() => EmployerCopilotService.clientOverride = null);
 
     test('counts a trade in a market, and never invents one', () async {
       final pool = [
