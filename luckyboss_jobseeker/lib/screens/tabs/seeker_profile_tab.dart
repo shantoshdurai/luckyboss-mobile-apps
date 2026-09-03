@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../edit_profile_screen.dart';
@@ -64,7 +63,7 @@ class _SeekerProfileTabState extends State<SeekerProfileTab> {
                   const SizedBox(height: 16),
                   Text(
                     'Select & Search Skills',
-                    style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
+                    style: const TextStyle(fontFamily: 'Archivo').copyWith(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
                   ),
                   const SizedBox(height: 12),
 
@@ -202,7 +201,7 @@ controller: customSkillCtrl,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Edit Executive Bio', style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
+                Text('Edit Executive Bio', style: const TextStyle(fontFamily: 'Archivo').copyWith(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
                 const SizedBox(height: 6),
                 Text('Summarize your professional experience and key achievements.', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted)),
                 const SizedBox(height: 14),
@@ -264,7 +263,7 @@ controller: customSkillCtrl,
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Update Resume', style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
+              Text('Update Resume', style: const TextStyle(fontFamily: 'Archivo').copyWith(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {
@@ -320,7 +319,7 @@ controller: customSkillCtrl,
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Privacy & Data Protection', style: GoogleFonts.archivo(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
+              Text('Privacy & Data Protection', style: const TextStyle(fontFamily: 'Archivo').copyWith(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context))),
               const SizedBox(height: 8),
               Text('Last updated: August 2026', style: AppTheme.sansRegular(fontSize: 12, color: AppTheme.textMuted)),
               const Divider(height: 24),
@@ -498,7 +497,7 @@ controller: customSkillCtrl,
                               Flexible(
                                 child: Text(
                                   candidateName,
-                                  style: GoogleFonts.archivo(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
+                                  style: const TextStyle(fontFamily: 'Archivo').copyWith(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkOf(context)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),

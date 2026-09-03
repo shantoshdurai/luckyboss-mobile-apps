@@ -31,7 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
   provider: ^6.1.2
   intl: ^0.19.0
   http: ^1.2.2
@@ -71,6 +70,27 @@ flutter:
   assets:
     - assets/images/
     - assets/data/
+
+  # Bundled rather than fetched at runtime. google_fonts downloads a face on
+  # first use and throws when it cannot reach fonts.gstatic.com, which turns a
+  # weak connection into an app with no text in it.
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Archivo-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Archivo-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Archivo-Bold.ttf
+          weight: 700
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Newsreader-Medium.ttf
+          weight: 500
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

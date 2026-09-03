@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_theme.dart';
 
 class LuckyBossBrandLogo extends StatelessWidget {
@@ -29,7 +28,7 @@ class LuckyBossBrandLogo extends StatelessWidget {
               shaderCallback: (bounds) => AppTheme.brandRule.createShader(bounds),
               child: Text(
                 'Luckyboss',
-                style: GoogleFonts.archivo(
+                style: const TextStyle(fontFamily: 'Archivo').copyWith(
                   fontSize: fontSize,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,

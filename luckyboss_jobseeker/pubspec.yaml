@@ -31,7 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
   provider: ^6.1.2
   intl: ^0.19.0
   http: ^1.2.2
@@ -90,6 +89,32 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
+  # Bundled rather than fetched at runtime.
+  #
+  # google_fonts downloads a face on first use and throws an unhandled
+  # exception when it cannot — which on a handset with no connection, or one
+  # behind a DNS filter that blocks fonts.gstatic.com, is every text style in
+  # the app. The candidates this app is built for are field workers on patchy
+  # mobile data, so "the network is fine" is not a safe assumption to render
+  # text on.
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Archivo-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Archivo-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Archivo-Bold.ttf
+          weight: 700
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Newsreader-Medium.ttf
+          weight: 500
+
   # fonts:
   #   - family: Schyler
   #     fonts:

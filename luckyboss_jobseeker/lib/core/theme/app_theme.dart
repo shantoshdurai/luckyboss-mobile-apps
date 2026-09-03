@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// LUCKY BOSS — "LEDGER" DESIGN SYSTEM
 ///
@@ -117,7 +116,12 @@ class AppTheme {
     double letterSpacing = 0,
     double? height,
   }) =>
-      GoogleFonts.archivo(
+      // Bundled, not fetched. GoogleFonts.archivo() downloads the face on
+      // first use and throws when it cannot reach fonts.gstatic.com — which on
+      // a field worker's patchy connection, or behind a DNS filter, is every
+      // piece of text in the app. The family name matches pubspec.yaml.
+      TextStyle(
+        fontFamily: 'Archivo',
         fontSize: size,
         fontWeight: weight,
         color: color,
@@ -140,7 +144,8 @@ class AppTheme {
       _archivo(size: size, weight: FontWeight.w600, color: color, letterSpacing: -0.1);
 
   /// A person's name. The one serif in the system.
-  static TextStyle personName({Color color = ink, double size = 16}) => GoogleFonts.newsreader(
+  static TextStyle personName({Color color = ink, double size = 16}) => TextStyle(
+        fontFamily: 'Newsreader',
         fontSize: size,
         fontWeight: FontWeight.w500,
         color: color,
